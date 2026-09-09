@@ -6,7 +6,9 @@ from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import GetInstanceFromPath, JwtRequired
 from project_helpers.error import Error
 from project_helpers.exceptions import ErrorException
+from modules.field.models import FieldModel
 from modules.match.models import MatchModel, MatchResponse, MatchUpdate
+from modules.match.services import load_match_full
 from modules.season.services import ensure_team_enrolled
 from modules.standings.services import recalculate_standings_for_teams
 from modules.team.models import TeamModel
@@ -50,6 +52,22 @@ async def update_match(
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+    if data.fieldId is not None:
+        field = (
+            db.query(FieldModel).filter(FieldModel.id == data.fieldId).first()
+        )
+        if field is None:
+            raise ErrorException(
+                Error.NOT_FOUND,
+                message="Field not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+    if match.isLocked:
+        raise ErrorException(
+            Error.MATCH_LOCKED, status_code=status.HTTP_409_CONFLICT
+        )
+
     match.update(data)
     db.flush()
 
@@ -63,5 +81,4 @@ async def update_match(
     )
 
     db.commit()
-    db.refresh(match)
-    return match
+    return load_match_full(db, match.id)

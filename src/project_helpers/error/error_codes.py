@@ -8,12 +8,37 @@ class Error(Enum):
     INVALID_TOKEN = ("E0012", "Authorization token is invalid or expired")
     FORBIDDEN = ("E0013", "You do not have permission to perform this action")
     USER_NOT_FOUND = ("E0014", "User not found")
+    ACCOUNT_DISABLED = ("E0015", "This account has been disabled")
+    NOT_ASSIGNED_TO_MATCH = (
+        "E0016",
+        "You are not assigned to this match",
+    )
+    CANNOT_DEMOTE_SELF = (
+        "E0017",
+        "You cannot change your own role or disable your own account",
+    )
 
     # Generic
     NOT_FOUND = ("E0030", "Resource not found")
     VALIDATION_ERROR = ("E0031", "Validation error")
     CONFLICT = ("E0032", "Resource already exists")
     BAD_REQUEST = ("E0033", "Bad request")
+
+    # Match scoring
+    MATCH_LOCKED = (
+        "E0050",
+        "The match result is confirmed and locked; a super-admin must reopen it",
+    )
+    MATCH_NOT_STARTED = ("E0051", "The match has not been started yet")
+    INVALID_MATCH_TRANSITION = (
+        "E0052",
+        "The match cannot move to that state from its current one",
+    )
+    EVENT_ALREADY_VOIDED = ("E0053", "This event has already been voided")
+    PLAYER_NOT_IN_TEAM = (
+        "E0054",
+        "The player does not belong to the team credited with the event",
+    )
 
     # Files
     INVALID_IMAGE = ("E0040", "Invalid image file")

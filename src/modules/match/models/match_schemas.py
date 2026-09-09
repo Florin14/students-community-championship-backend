@@ -19,7 +19,9 @@ class MatchAdd(BaseSchema):
     awayTeamId: int
     round: Optional[int] = Field(None, ge=1)
     timestamp: datetime
+    fieldId: Optional[int] = None
     location: Optional[str] = Field(None, max_length=160)
+    operatorIds: List[int] = Field(default_factory=list)
 
 
 class MatchUpdate(BaseSchema):
@@ -27,8 +29,21 @@ class MatchUpdate(BaseSchema):
     homeTeamId: Optional[int] = None
     awayTeamId: Optional[int] = None
     timestamp: Optional[datetime] = None
+    fieldId: Optional[int] = None
     location: Optional[str] = Field(None, max_length=160)
     state: Optional[MatchState] = None
+
+
+class MatchOperatorsSet(BaseSchema):
+    """Replace the full set of operators assigned to a match."""
+
+    operatorIds: List[int] = Field(default_factory=list)
+
+
+class MatchOperatorItem(BaseSchema):
+    userId: int
+    userName: Optional[str] = None
+    userEmail: Optional[str] = None
 
 
 class GoalInput(BaseSchema):
@@ -87,10 +102,16 @@ class MatchItem(BaseSchema):
     homeTeamColor: Optional[str] = None
     awayTeamColor: Optional[str] = None
     timestamp: datetime
+    fieldId: Optional[int] = None
+    fieldName: Optional[str] = None
     location: Optional[str] = None
     scoreHome: Optional[int] = None
     scoreAway: Optional[int] = None
     state: MatchState
+    startedAt: Optional[datetime] = None
+    isClockRunning: bool = False
+    currentMinute: Optional[int] = None
+    isLocked: bool = False
 
     @field_validator("homeTeamLogo", "awayTeamLogo", mode="before")
     @classmethod
@@ -101,11 +122,19 @@ class MatchItem(BaseSchema):
 class MatchResponse(MatchItem):
     goals: List[GoalItem] = []
     cards: List[CardItem] = []
+    confirmedAt: Optional[datetime] = None
+    confirmedByName: Optional[str] = None
+    operators: List[MatchOperatorItem] = Field(
+        default_factory=list, validation_alias="matchOperators"
+    )
 
 
 class MatchListParams(PaginationParams):
     seasonId: Optional[int] = Field(
         None, validation_alias=AliasChoices("seasonId", "season_id")
+    )
+    fieldId: Optional[int] = Field(
+        None, validation_alias=AliasChoices("fieldId", "field_id")
     )
     teamId: Optional[int] = Field(
         None, validation_alias=AliasChoices("teamId", "team_id")

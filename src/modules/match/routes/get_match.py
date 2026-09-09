@@ -1,29 +1,18 @@
 from fastapi import Depends, Path, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from extensions.sqlalchemy import get_db
 from project_helpers.error import Error
 from project_helpers.exceptions import ErrorException
-from modules.match.models import CardModel, GoalModel, MatchModel, MatchResponse
+from modules.match.models import MatchResponse
+from modules.match.services import load_match_full
 
 from .router import router
 
 
 @router.get("/{id}", response_model=MatchResponse)
 async def get_match(id: int = Path(...), db: Session = Depends(get_db)):
-    match = (
-        db.query(MatchModel)
-        .options(
-            joinedload(MatchModel.homeTeam),
-            joinedload(MatchModel.awayTeam),
-            joinedload(MatchModel.season),
-            joinedload(MatchModel.goals).joinedload(GoalModel.scorer),
-            joinedload(MatchModel.goals).joinedload(GoalModel.assistPlayer),
-            joinedload(MatchModel.cards).joinedload(CardModel.player),
-        )
-        .filter(MatchModel.id == id)
-        .first()
-    )
+    match = load_match_full(db, id)
 
     if match is None:
         raise ErrorException(

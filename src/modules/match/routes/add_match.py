@@ -6,7 +6,9 @@ from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import JwtRequired
 from project_helpers.error import Error
 from project_helpers.exceptions import ErrorException
+from modules.field.models import FieldModel
 from modules.match.models import MatchAdd, MatchModel, MatchResponse
+from modules.match.services import load_match_full, set_match_operators
 from modules.season.models import SeasonModel
 from modules.season.services import ensure_team_enrolled
 from modules.team.models import TeamModel
@@ -49,12 +51,24 @@ async def add_match(data: MatchAdd, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
+    if data.fieldId is not None:
+        field = (
+            db.query(FieldModel).filter(FieldModel.id == data.fieldId).first()
+        )
+        if field is None:
+            raise ErrorException(
+                Error.NOT_FOUND,
+                message="Field not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
     match = MatchModel(
         seasonId=data.seasonId,
         homeTeamId=data.homeTeamId,
         awayTeamId=data.awayTeamId,
         round=data.round,
         timestamp=data.timestamp,
+        fieldId=data.fieldId,
         location=data.location,
     )
     db.add(match)
@@ -63,6 +77,8 @@ async def add_match(data: MatchAdd, db: Session = Depends(get_db)):
     ensure_team_enrolled(db, data.seasonId, data.homeTeamId)
     ensure_team_enrolled(db, data.seasonId, data.awayTeamId)
 
+    if data.operatorIds:
+        set_match_operators(db, match, data.operatorIds)
+
     db.commit()
-    db.refresh(match)
-    return match
+    return load_match_full(db, match.id)

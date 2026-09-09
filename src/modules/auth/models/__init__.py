@@ -3,5 +3,9 @@ from .user_schemas import (
     ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
+    UserAdd,
+    UserListParams,
+    UserListResponse,
     UserResponse,
+    UserUpdate,
 )

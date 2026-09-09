@@ -1,12 +1,17 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(".env", override=False)
-if os.path.exists(".env.local"):
-    load_dotenv(".env.local", override=True)
+# Same anchoring as extensions.sqlalchemy.init: the app is started from src/,
+# the env files live at the repo root.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+load_dotenv(_PROJECT_ROOT / ".env", override=False)
+if (_PROJECT_ROOT / ".env.local").exists():
+    load_dotenv(_PROJECT_ROOT / ".env.local", override=True)
 
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException, RequestValidationError
@@ -25,17 +30,25 @@ from project_helpers.responses import (
 from constants import PlatformRoles
 from modules import (
     authRouter,
+    fieldRouter,
     matchRouter,
     playerRouter,
     seasonRouter,
     standingsRouter,
     statsRouter,
     teamRouter,
+    userRouter,
 )
 from modules.auth.models import UserModel
 
 
 def _ensure_default_admin():
+    """Seed the first super-admin so a fresh database is usable.
+
+    The first account is a SUPER_ADMIN because it is the only role that can
+    reopen a confirmed match, and it is the account that creates the operator
+    accounts for match day.
+    """
     email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@scc.ro")
     password = os.getenv("DEFAULT_ADMIN_PASSWORD")
     name = os.getenv("DEFAULT_ADMIN_NAME", "Administrator")
@@ -44,22 +57,28 @@ def _ensure_default_admin():
     try:
         has_admin = (
             db.query(UserModel)
-            .filter(UserModel.role == PlatformRoles.ADMIN)
+            .filter(
+                UserModel.role.in_(
+                    [PlatformRoles.ADMIN, PlatformRoles.SUPER_ADMIN]
+                )
+            )
             .first()
             is not None
         )
         if not has_admin:
             if not password:
                 logging.warning(
-                    "No admin exists and DEFAULT_ADMIN_PASSWORD is not set - "
-                    "skipping default admin creation"
+                    "No administrator exists and DEFAULT_ADMIN_PASSWORD is not "
+                    "set - skipping default account creation"
                 )
                 return
-            admin = UserModel(name=name, email=email, role=PlatformRoles.ADMIN)
+            admin = UserModel(
+                name=name, email=email, role=PlatformRoles.SUPER_ADMIN
+            )
             admin.password = password
             db.add(admin)
             db.commit()
-            logging.info("Default admin user created: %s", email)
+            logging.info("Default super-admin account created: %s", email)
     finally:
         db.close()
 
@@ -108,9 +127,11 @@ def health():
 
 for router in (
     authRouter,
+    userRouter,
     seasonRouter,
     teamRouter,
     playerRouter,
+    fieldRouter,
     matchRouter,
     standingsRouter,
     statsRouter,

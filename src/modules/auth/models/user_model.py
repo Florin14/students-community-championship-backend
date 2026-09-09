@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, String
+from sqlalchemy import Boolean, Column, Enum, String
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from constants import PlatformRoles
@@ -16,6 +16,7 @@ class UserModel(SqlBaseModel):
     role = Column(
         Enum(PlatformRoles), nullable=False, default=PlatformRoles.ADMIN
     )
+    isActive = Column("is_active", Boolean, nullable=False, default=True)
 
     @hybrid_property
     def password(self):
@@ -24,6 +25,14 @@ class UserModel(SqlBaseModel):
     @password.setter
     def password(self, value: str):
         self._password = hash_password(value)
+
+    @property
+    def platformRole(self) -> PlatformRoles:
+        return PlatformRoles(str(self.role))
+
+    def covers(self, required: PlatformRoles) -> bool:
+        """True when this user's role satisfies a requirement for `required`."""
+        return self.platformRole.covers(required)
 
     def get_claims(self):
         return {"userId": self.id, "role": str(self.role), "userName": self.name}

@@ -11,9 +11,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .base_model import BaseModel
 
-load_dotenv(".env", override=False)
+# The API is normally started from src/, while the env files live at the repo
+# root, so anchor the lookup to this file instead of the working directory.
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-local_env_path = Path(".env.local")
+load_dotenv(PROJECT_ROOT / ".env", override=False)
+
+local_env_path = PROJECT_ROOT / ".env.local"
 if local_env_path.exists():
     load_dotenv(local_env_path, override=True)
 

@@ -14,13 +14,20 @@ from project_helpers.functions import decode_access_token
 class JwtRequired:
     """Dependency that validates the Bearer token and loads the current user.
 
+    Roles are hierarchical, so a requirement names the *lowest* role that may
+    pass: `roles=[PlatformRoles.ADMIN]` admits ADMIN and SUPER_ADMIN but not
+    OPERATOR.
+
     Usage:
         dependencies=[Depends(JwtRequired())]
         dependencies=[Depends(JwtRequired(roles=[PlatformRoles.ADMIN]))]
+        user: UserModel = Depends(JwtRequired(roles=[PlatformRoles.OPERATOR]))
     """
 
     def __init__(self, roles: Optional[List[PlatformRoles]] = None):
-        self.roles = [str(role) for role in roles] if roles else None
+        self.requiredLevel = (
+            min(role.level for role in roles) if roles else None
+        )
 
     def __call__(self, request: Request, db: Session = Depends(get_db)):
         from modules.auth.models import UserModel
@@ -51,10 +58,17 @@ class JwtRequired:
                 Error.USER_NOT_FOUND, status_code=status.HTTP_401_UNAUTHORIZED
             )
 
-        if self.roles and str(user.role) not in self.roles:
+        if not user.isActive:
             raise ErrorException(
-                Error.FORBIDDEN, status_code=status.HTTP_403_FORBIDDEN
+                Error.ACCOUNT_DISABLED, status_code=status.HTTP_403_FORBIDDEN
             )
+
+        if self.requiredLevel is not None:
+            role = PlatformRoles(str(user.role))
+            if role.level < self.requiredLevel:
+                raise ErrorException(
+                    Error.FORBIDDEN, status_code=status.HTTP_403_FORBIDDEN
+                )
 
         request.state.user = user
         return user

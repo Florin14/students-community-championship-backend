@@ -17,10 +17,14 @@ async def get_matches(
         joinedload(MatchModel.homeTeam),
         joinedload(MatchModel.awayTeam),
         joinedload(MatchModel.season),
+        joinedload(MatchModel.field),
     )
 
     if params.seasonId:
         query = query.filter(MatchModel.seasonId == params.seasonId)
+
+    if params.fieldId:
+        query = query.filter(MatchModel.fieldId == params.fieldId)
 
     if params.teamId:
         query = query.filter(
