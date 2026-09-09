@@ -33,6 +33,9 @@ from modules.match.models import (  # noqa: E402
     MatchReopen,
 )
 from modules.match.routes.add_match_event import add_match_event  # noqa: E402
+from modules.match.routes.get_match import get_match  # noqa: E402
+from modules.match.routes.get_match_events import get_match_events  # noqa: E402
+from modules.match.models import MatchEventListParams  # noqa: E402
 from modules.match.routes.match_lifecycle import (  # noqa: E402
     finish,
     pause,
@@ -696,6 +699,73 @@ def test_voided_events_never_reach_the_statistics():
     assert goalsFromThisMatch == 1
     assert stats[H1.id]["goals"] >= 1
     assert keep.event.status == MatchEventStatus.ACTIVE
+
+
+# --- The read routes the public and the console actually call -----------------
+
+@test
+def test_match_detail_returns_the_active_timeline_in_minute_order():
+    match = started()
+    addEvent(
+        match, type=MatchEventType.GOAL, teamId=HOME.id, playerId=H2.id, minute=40
+    )
+    early = addEvent(
+        match, type=MatchEventType.GOAL, teamId=HOME.id, playerId=H1.id, minute=5
+    )
+    dropped = addEvent(
+        match, type=MatchEventType.GOAL, teamId=AWAY.id, playerId=A1.id, minute=20
+    )
+    call(
+        void_match_event(
+            data=MatchEventVoid(reason="Mistake"),
+            eventId=dropped.event.id,
+            ctx=ctx(match),
+            db=DB,
+        )
+    )
+    DB.commit()
+
+    detail = call(get_match(id=match.id, db=DB))
+    minutes = [event.minute for event in detail.events]
+    assert minutes == [5, 40], "voided events must not reach the public detail"
+    assert detail.events[0].id == early.event.id
+    assert detail.homeTeamName == "Informatica"
+    assert (detail.scoreHome, detail.scoreAway) == (2, 0)
+
+
+@test
+def test_the_console_can_ask_for_the_full_record():
+    match = started()
+    dropped = addEvent(
+        match, type=MatchEventType.GOAL, teamId=HOME.id, playerId=H1.id
+    )
+    call(
+        void_match_event(
+            data=MatchEventVoid(reason="Mistake"),
+            eventId=dropped.event.id,
+            ctx=ctx(match),
+            db=DB,
+        )
+    )
+    DB.commit()
+
+    public = call(
+        get_match_events(
+            id=match.id, params=MatchEventListParams(), db=DB
+        )
+    )
+    assert public.data == []
+
+    full = call(
+        get_match_events(
+            id=match.id,
+            params=MatchEventListParams(includeVoided=True),
+            db=DB,
+        )
+    )
+    assert len(full.data) == 1
+    assert full.data[0].status == MatchEventStatus.VOIDED
+    assert full.data[0].voidReason == "Mistake"
 
 
 if __name__ == "__main__":
