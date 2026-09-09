@@ -3,8 +3,10 @@ from typing import List, Optional
 
 from pydantic import AliasChoices, Field, field_validator
 
-from constants import CardType, MatchState
+from constants import MatchState
 from project_helpers.schemas import BaseSchema, PaginationParams
+
+from .match_event_schemas import MatchEventItem
 
 
 def _decode_logo(value):
@@ -46,46 +48,6 @@ class MatchOperatorItem(BaseSchema):
     userEmail: Optional[str] = None
 
 
-class GoalInput(BaseSchema):
-    teamId: int
-    scorerId: Optional[int] = None
-    assistPlayerId: Optional[int] = None
-    minute: Optional[int] = Field(None, ge=0, le=150)
-
-
-class CardInput(BaseSchema):
-    teamId: int
-    playerId: int
-    cardType: CardType
-    minute: Optional[int] = Field(None, ge=0, le=150)
-
-
-class MatchResultSet(BaseSchema):
-    scoreHome: int = Field(..., ge=0)
-    scoreAway: int = Field(..., ge=0)
-    goals: List[GoalInput] = Field(default_factory=list)
-    cards: List[CardInput] = Field(default_factory=list)
-
-
-class GoalItem(BaseSchema):
-    id: int
-    teamId: int
-    scorerId: Optional[int] = None
-    scorerName: Optional[str] = None
-    assistPlayerId: Optional[int] = None
-    assistName: Optional[str] = None
-    minute: Optional[int] = None
-
-
-class CardItem(BaseSchema):
-    id: int
-    teamId: int
-    playerId: Optional[int] = None
-    playerName: Optional[str] = None
-    cardType: CardType
-    minute: Optional[int] = None
-
-
 class MatchItem(BaseSchema):
     id: int
     seasonId: int
@@ -120,8 +82,7 @@ class MatchItem(BaseSchema):
 
 
 class MatchResponse(MatchItem):
-    goals: List[GoalItem] = []
-    cards: List[CardItem] = []
+    events: List[MatchEventItem] = []
     confirmedAt: Optional[datetime] = None
     confirmedByName: Optional[str] = None
     operators: List[MatchOperatorItem] = Field(

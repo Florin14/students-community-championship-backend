@@ -48,6 +48,7 @@ def build_top_players(
                 teamName=player.teamName,
                 avatar=player.avatar,
                 goals=player_stats["goals"],
+                ownGoals=player_stats["ownGoals"],
                 assists=player_stats["assists"],
                 yellowCards=player_stats["yellowCards"],
                 redCards=player_stats["redCards"],

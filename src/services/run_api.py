@@ -29,6 +29,7 @@ from project_helpers.responses import (
 )
 from constants import PlatformRoles
 from modules import (
+    auditRouter,
     authRouter,
     fieldRouter,
     matchRouter,
@@ -135,6 +136,7 @@ for router in (
     matchRouter,
     standingsRouter,
     statsRouter,
+    auditRouter,
 ):
     api.include_router(router)
 

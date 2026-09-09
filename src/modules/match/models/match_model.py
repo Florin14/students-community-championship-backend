@@ -67,11 +67,11 @@ class MatchModel(SqlBaseModel):
     confirmedBy = relationship("UserModel", foreign_keys=[confirmedById])
     homeTeam = relationship("TeamModel", foreign_keys=[homeTeamId])
     awayTeam = relationship("TeamModel", foreign_keys=[awayTeamId])
-    goals = relationship(
-        "GoalModel", back_populates="match", cascade="all, delete-orphan"
-    )
-    cards = relationship(
-        "CardModel", back_populates="match", cascade="all, delete-orphan"
+    events = relationship(
+        "MatchEventModel",
+        back_populates="match",
+        cascade="all, delete-orphan",
+        foreign_keys="MatchEventModel.matchId",
     )
     matchOperators = relationship(
         "MatchOperatorModel",

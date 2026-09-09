@@ -43,6 +43,7 @@ class PlayerItem(BaseSchema):
     teamName: Optional[str] = None
     teamShortName: Optional[str] = None
     goals: int = 0
+    ownGoals: int = 0
     assists: int = 0
     yellowCards: int = 0
     redCards: int = 0

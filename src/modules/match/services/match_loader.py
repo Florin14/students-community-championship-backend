@@ -1,8 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 
 from modules.match.models import (
-    CardModel,
-    GoalModel,
+    MatchEventModel,
     MatchModel,
     MatchOperatorModel,
 )
@@ -26,9 +25,13 @@ def load_match_full(db: Session, matchId: int):
             joinedload(MatchModel.matchOperators).joinedload(
                 MatchOperatorModel.user
             ),
-            joinedload(MatchModel.goals).joinedload(GoalModel.scorer),
-            joinedload(MatchModel.goals).joinedload(GoalModel.assistPlayer),
-            joinedload(MatchModel.cards).joinedload(CardModel.player),
+            joinedload(MatchModel.events).joinedload(MatchEventModel.player),
+            joinedload(MatchModel.events).joinedload(
+                MatchEventModel.assistPlayer
+            ),
+            joinedload(MatchModel.events).joinedload(
+                MatchEventModel.createdBy
+            ),
         )
         .filter(MatchModel.id == matchId)
         .first()

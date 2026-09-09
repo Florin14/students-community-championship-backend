@@ -1,12 +1,17 @@
 from .match_model import MatchModel
-from .goal_model import GoalModel
-from .card_model import CardModel
+from .match_event_model import MatchEventModel
 from .match_operator_model import MatchOperatorModel
+from .match_event_schemas import (
+    MatchClockAction,
+    MatchEventAdd,
+    MatchEventItem,
+    MatchEventListParams,
+    MatchEventListResponse,
+    MatchEventVoid,
+    MatchEventWriteResponse,
+    MatchReopen,
+)
 from .match_schemas import (
-    CardInput,
-    CardItem,
-    GoalInput,
-    GoalItem,
     MatchAdd,
     MatchItem,
     MatchListParams,
@@ -14,6 +19,5 @@ from .match_schemas import (
     MatchOperatorItem,
     MatchOperatorsSet,
     MatchResponse,
-    MatchResultSet,
     MatchUpdate,
 )

@@ -2,10 +2,11 @@ from fastapi import Depends
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from constants import CardType
+from constants import MatchEventType
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import GetInstanceFromPath
-from modules.match.models import CardModel, GoalModel, MatchModel
+from modules.match.models import MatchEventModel, MatchModel
+from modules.match.services import active_event_filter
 from modules.player.models import (
     PlayerEventItem,
     PlayerEventsResponse,
@@ -14,8 +15,18 @@ from modules.player.models import (
 
 from .router import router
 
+# How an event reads on a player's own timeline. A card keeps its colour; a goal
+# the player conceded into their own net is named as such rather than counted as
+# a goal.
+_LABELS = {
+    MatchEventType.GOAL: "GOAL",
+    MatchEventType.OWN_GOAL: "OWN_GOAL",
+    MatchEventType.YELLOW_CARD: "YELLOW",
+    MatchEventType.RED_CARD: "RED",
+}
 
-def _event_from_match(match: MatchModel, event_type: str, minute):
+
+def _item(match: MatchModel, eventType: str, minute):
     return PlayerEventItem(
         matchId=match.id,
         timestamp=match.timestamp,
@@ -23,7 +34,7 @@ def _event_from_match(match: MatchModel, event_type: str, minute):
         awayTeamName=match.awayTeamName,
         scoreHome=match.scoreHome,
         scoreAway=match.scoreAway,
-        type=event_type,
+        type=eventType,
         minute=minute,
     )
 
@@ -33,41 +44,41 @@ async def get_player_events(
     player: PlayerModel = Depends(GetInstanceFromPath(PlayerModel)),
     db: Session = Depends(get_db),
 ):
-    """Chronological list of the player's goals, assists and cards."""
-    events = []
+    """Chronological list of the player's goals, assists and cards.
 
-    goals = (
-        db.query(GoalModel)
-        .options(joinedload(GoalModel.match).joinedload(MatchModel.homeTeam))
-        .options(joinedload(GoalModel.match).joinedload(MatchModel.awayTeam))
+    Reads the active event log, so an event that was voided during the match
+    never shows up on a profile.
+    """
+    events = (
+        db.query(MatchEventModel)
+        .options(
+            joinedload(MatchEventModel.match).joinedload(MatchModel.homeTeam),
+            joinedload(MatchEventModel.match).joinedload(MatchModel.awayTeam),
+        )
         .filter(
             or_(
-                GoalModel.scorerId == player.id,
-                GoalModel.assistPlayerId == player.id,
-            )
+                MatchEventModel.playerId == player.id,
+                MatchEventModel.assistPlayerId == player.id,
+            ),
+            active_event_filter(),
         )
         .all()
     )
-    for goal in goals:
-        if goal.scorerId == player.id:
-            events.append(_event_from_match(goal.match, "GOAL", goal.minute))
-        if goal.assistPlayerId == player.id:
-            events.append(_event_from_match(goal.match, "ASSIST", goal.minute))
 
-    cards = (
-        db.query(CardModel)
-        .options(joinedload(CardModel.match).joinedload(MatchModel.homeTeam))
-        .options(joinedload(CardModel.match).joinedload(MatchModel.awayTeam))
-        .filter(CardModel.playerId == player.id)
-        .all()
-    )
-    for card in cards:
-        event_type = "YELLOW" if card.cardType == CardType.YELLOW else "RED"
-        events.append(_event_from_match(card.match, event_type, card.minute))
+    items = []
+    for event in events:
+        eventType = MatchEventType(str(event.type))
+        if event.playerId == player.id:
+            items.append(_item(event.match, _LABELS[eventType], event.minute))
+        if (
+            event.assistPlayerId == player.id
+            and eventType == MatchEventType.GOAL
+        ):
+            items.append(_item(event.match, "ASSIST", event.minute))
 
-    events.sort(
+    items.sort(
         key=lambda e: (e.timestamp, e.minute if e.minute is not None else -1),
         reverse=True,
     )
 
-    return PlayerEventsResponse(data=events)
+    return PlayerEventsResponse(data=items)

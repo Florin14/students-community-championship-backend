@@ -4,10 +4,10 @@ from fastapi import Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from constants import CardType, MatchState
+from constants import MatchEventType, MatchState
 from extensions.sqlalchemy import get_db
-from modules.match.models import CardModel, MatchModel
-from modules.match.services import completed_match_filter
+from modules.match.models import MatchEventModel, MatchModel
+from modules.match.services import active_event_filter, completed_match_filter
 from modules.season.models import SeasonTeamModel
 from modules.player.models import PlayerModel
 from modules.stats.models import OverviewResponse
@@ -54,13 +54,19 @@ async def get_overview(
     goals = int(goals_query.scalar() or 0)
 
     cards_query = (
-        db.query(CardModel.cardType, func.count(CardModel.id))
-        .join(MatchModel)
-        .filter(completed_match_filter())
+        db.query(MatchEventModel.type, func.count(MatchEventModel.id))
+        .join(MatchModel, MatchEventModel.matchId == MatchModel.id)
+        .filter(
+            completed_match_filter(),
+            active_event_filter(),
+            MatchEventModel.type.in_(
+                [MatchEventType.YELLOW_CARD, MatchEventType.RED_CARD]
+            ),
+        )
     )
     if seasonId:
         cards_query = cards_query.filter(MatchModel.seasonId == seasonId)
-    cards = dict(cards_query.group_by(CardModel.cardType).all())
+    cards = dict(cards_query.group_by(MatchEventModel.type).all())
 
     top_scorers = build_top_players(
         db,
@@ -80,8 +86,8 @@ async def get_overview(
         avgGoalsPerMatch=(
             round(goals / matches_played, 2) if matches_played else 0.0
         ),
-        yellowCards=cards.get(CardType.YELLOW, 0),
-        redCards=cards.get(CardType.RED, 0),
+        yellowCards=cards.get(MatchEventType.YELLOW_CARD, 0),
+        redCards=cards.get(MatchEventType.RED_CARD, 0),
         topScorerName=top_scorer.name if top_scorer else None,
         topScorerTeamName=top_scorer.teamName if top_scorer else None,
         topScorerGoals=top_scorer.goals if top_scorer else 0,

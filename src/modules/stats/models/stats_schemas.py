@@ -12,6 +12,7 @@ class TopPlayerItem(BaseSchema):
     teamName: Optional[str] = None
     avatar: Optional[str] = None
     goals: int = 0
+    ownGoals: int = 0
     assists: int = 0
     yellowCards: int = 0
     redCards: int = 0

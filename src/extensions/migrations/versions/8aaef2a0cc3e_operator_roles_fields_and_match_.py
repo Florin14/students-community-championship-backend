@@ -28,6 +28,9 @@ BigIntPK = sa.BigInteger().with_variant(sa.Integer(), 'sqlite')
 
 NEW_ROLES = ('OPERATOR', 'SUPER_ADMIN')
 
+# HALF_TIME arrives with the match clock: pausing needs a state to sit in.
+NEW_MATCH_STATES = ('HALF_TIME',)
+
 
 def upgrade() -> None:
     bind = op.get_bind()
@@ -154,11 +157,15 @@ def upgrade() -> None:
     )
 
     if isPostgres:
-        # The enum type already exists with a single value; widen it in place.
-        # ALTER TYPE ... ADD VALUE is transactional from Postgres 12 onwards.
+        # The enum types already exist; widen them in place. ALTER TYPE ... ADD
+        # VALUE is transactional from Postgres 12 onwards.
         for role in NEW_ROLES:
             op.execute(
                 "ALTER TYPE platformroles ADD VALUE IF NOT EXISTS '%s'" % role
+            )
+        for state in NEW_MATCH_STATES:
+            op.execute(
+                "ALTER TYPE matchstate ADD VALUE IF NOT EXISTS '%s'" % state
             )
 
 
@@ -167,7 +174,22 @@ def downgrade() -> None:
     isPostgres = bind.dialect.name == 'postgresql'
 
     if isPostgres:
-        # Enum values cannot be dropped, so rebuild the type with ADMIN only.
+        # Enum values cannot be dropped, so rebuild the types without them.
+        op.execute(
+            "UPDATE matches SET state = 'POSTPONED' WHERE state = 'HALF_TIME'"
+        )
+        op.execute("ALTER TYPE matchstate RENAME TO matchstate_old")
+        op.execute(
+            "CREATE TYPE matchstate AS ENUM "
+            "('SCHEDULED', 'LIVE', 'FINISHED', 'POSTPONED')"
+        )
+        op.execute(
+            "ALTER TABLE matches ALTER COLUMN state TYPE matchstate "
+            "USING state::text::matchstate"
+        )
+        op.execute("DROP TYPE matchstate_old")
+
+        # Rebuild the role type with ADMIN only.
         # Accounts on a removed role become plain admins; operators would
         # otherwise be left pointing at a value the type no longer holds.
         op.execute(
