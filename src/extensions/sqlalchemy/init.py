@@ -77,5 +77,16 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
 
 
 def init_db():
+    """Prepare the mappers and, for local development only, create the tables.
+
+    Schema changes go through Alembic. `AUTO_CREATE_TABLES` exists so a local
+    sqlite smoke-test does not need a migration run; set it to false in every
+    deployed environment so the schema is only ever moved by `alembic upgrade`.
+    """
     configure_mappers()
-    BaseModel.metadata.create_all(bind=engine)
+
+    auto_create = os.getenv("AUTO_CREATE_TABLES", "true").strip().lower()
+    if auto_create in ("1", "true", "yes"):
+        BaseModel.metadata.create_all(bind=engine)
+    else:
+        logging.info("AUTO_CREATE_TABLES is off - schema is managed by Alembic")
