@@ -1,6 +1,7 @@
 from .router import router as matchRouter
 from .get_all_matches import *
 from .get_my_matches import *
+from .get_live_matches import *
 from .get_match import *
 from .get_match_events import *
 from .add_match import *

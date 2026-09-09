@@ -106,3 +106,23 @@ class MatchListParams(PaginationParams):
 
 class MatchListResponse(BaseSchema):
     data: List[MatchItem] = []
+
+
+class LiveMatchItem(MatchItem):
+    """A match in progress, with its timeline, for the public live views."""
+
+    events: List[MatchEventItem] = []
+
+
+class LiveMatchesResponse(BaseSchema):
+    """The live payload plus a fingerprint of it.
+
+    `revision` changes only when something a viewer would notice changes - a
+    score, a state, a new or voided event. The clock is deliberately excluded:
+    the client ticks the minute itself from `startedAt` and `elapsedSeconds`, so
+    polling does not report a change every sixty seconds.
+    """
+
+    data: List[LiveMatchItem] = []
+    revision: str = ""
+    serverTime: datetime

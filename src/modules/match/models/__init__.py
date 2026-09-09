@@ -12,6 +12,8 @@ from .match_event_schemas import (
     MatchReopen,
 )
 from .match_schemas import (
+    LiveMatchesResponse,
+    LiveMatchItem,
     MatchAdd,
     MatchItem,
     MatchListParams,
