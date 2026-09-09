@@ -1,0 +1,1 @@
+from .enrollment_service import ensure_team_enrolled
