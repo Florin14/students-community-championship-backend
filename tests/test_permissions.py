@@ -5,9 +5,16 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from support import call, fresh_database, raises, run, test  # noqa: E402
+from support import (  # noqa: E402
+    call,
+    drop_database,
+    fresh_database,
+    raises,
+    run,
+    test,
+)
 
-DB_URL, DB_PATH = fresh_database()
+DB_URL, DB_HANDLE = fresh_database()
 
 from constants import MatchState, PlatformRoles  # noqa: E402
 from extensions.sqlalchemy import SessionLocal  # noqa: E402
@@ -305,5 +312,5 @@ def test_password_reset_rehashes_and_does_not_store_plaintext():
 if __name__ == "__main__":
     code = run("Etapa 1 - roles, assignment and match access")
     DB.close()
-    os.unlink(DB_PATH)
+    drop_database(DB_HANDLE)
     sys.exit(code)

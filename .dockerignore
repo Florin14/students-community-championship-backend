@@ -1,0 +1,21 @@
+# Everything the runtime image has no use for. Keeping this tight matters twice:
+# a smaller build context is faster, and files that never enter the image can
+# never leak from it.
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+.git/
+.gitignore
+.env
+.env.local
+.env.template
+tests/
+scripts/
+docker-compose*.yml
+env.yml
+local_db.yml
+port_forwards.yml
+*.md
+!CLAUDE.md

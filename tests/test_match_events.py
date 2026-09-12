@@ -10,9 +10,16 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from support import call, fresh_database, raises, run, test  # noqa: E402
+from support import (  # noqa: E402
+    call,
+    drop_database,
+    fresh_database,
+    raises,
+    run,
+    test,
+)
 
-DB_URL, DB_PATH = fresh_database()
+DB_URL, DB_HANDLE = fresh_database()
 
 from constants import (  # noqa: E402
     MatchEventStatus,
@@ -771,5 +778,5 @@ def test_the_console_can_ask_for_the_full_record():
 if __name__ == "__main__":
     code = run("Etapa 2 - event log, clock, lock and audit")
     DB.close()
-    os.unlink(DB_PATH)
+    drop_database(DB_HANDLE)
     sys.exit(code)

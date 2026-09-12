@@ -11,19 +11,37 @@ append-only event log.
 python3.9 -m venv --without-pip .venv                     # ensurepip is missing locally
 python3.9 -m pip --python .venv/bin/python install -r requirements.txt
 
-cp .env.example .env                                       # then fill DATABASE_URL
+cp .env.template .env                     # paste the Neon / Supabase URL into DATABASE_URL
 
 cd src && ../.venv/bin/uvicorn services.run_api:api --reload   # run the API
-cd src && ../.venv/bin/python -m pytest ../tests -q             # run the tests
+TEST_DATABASE_URL=postgresql://... .venv/bin/python tests/run_all.py   # run the tests
 
 # Migrations (always from the repo root, never from src/)
-.venv/bin/alembic revision --autogenerate -m "what changed"
-.venv/bin/alembic upgrade head
-.venv/bin/alembic downgrade -1
+.venv/bin/python -m alembic revision --autogenerate -m "what changed"
+.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m alembic downgrade -1
+
+# Docker: bundled Postgres + the migration job + the API on :8000
+docker compose up -d --build
+docker compose -f docker-compose.yml up -d   # deployed shape: no bundled DB, no ports
+docker compose run --rm migrate              # migrations on their own
 ```
 
-Local dev without Postgres: `DATABASE_URL=sqlite:///./scc.db`. Python 3.9 is the
-only interpreter available locally.
+The stack is split across `docker-compose.yml` (topology), `env.yml`
+(configuration), `local_db.yml` + `port_forwards.yml` + `docker-compose.override.yml`
+(local only). The override is loaded automatically, so anything deploying must
+pass `-f docker-compose.yml` explicitly. New env vars go in `.env.template` and
+in `env.yml` in the same change.
+
+**The database is Postgres** (Neon or Supabase in every deployed environment,
+the bundled `postgres` container or a Neon branch locally). `DATABASE_URL` is
+normalised by `extensions/sqlalchemy/init.py`: `postgres://` / `postgresql://`
+become `postgresql+psycopg2://` and managed hosts get `sslmode=require`. The
+pool is sized with `DB_POOL_SIZE` / `DB_MAX_OVERFLOW`. SQLite exists only as the
+test harness fallback; never write code or migrations that only work there —
+every migration must run on Postgres (enum types need `ALTER TYPE` / `DROP TYPE`,
+enum columns need an explicit cast in raw SQL). Python 3.9 is the only
+interpreter available locally.
 
 ## Architecture
 
@@ -75,6 +93,50 @@ These are load-bearing. Match them exactly when adding code.
 - **Schema changes go through Alembic only.** `init_db()` runs `create_all` for
   local convenience; it is disabled in production via `AUTO_CREATE_TABLES=false`.
 
+## Migrations and default data
+
+`src/services/run_migrations.py` is the one place a container moves the schema:
+`alembic upgrade head`, then the default rows. It runs as the `migrate` compose
+service, which the API waits on with `service_completed_successfully` — so two
+replicas can never race the same upgrade, and a failed migration stops the
+rollout instead of leaving the API serving against a half-moved schema.
+
+```bash
+docker compose run --rm migrate                   # in the stack
+cd src && ../.venv/bin/python -m services.run_migrations   # from a checkout
+```
+
+It never autogenerates. Revisions are written by hand, reviewed and committed —
+a container that invents its own DDL against a live database is a different
+product.
+
+**Defaults** live in `src/services/populate_defaults.py`: a `STEPS` list of
+`(description, fn)`, applied in order right after the schema reaches head. Add a
+default by writing `_step(session)` and appending it. Two rules hold for every
+step:
+
+- **Idempotent** — it runs on every deploy, against databases that are already
+  populated. The admin step keys on *"does any administrator exist"*, never on
+  the email, so changing `DEFAULT_ADMIN_EMAIL` cannot inject a second privileged
+  account into a live platform.
+- **Independent** — each step gets its own commit and its own error line, so one
+  failure does not stop the rest.
+
+Exit codes are the contract: **1** when the migration itself failed (nothing
+starts against that database), **0** when the schema is at head — even if a
+default did not apply, because a missing default row must not take the platform
+down. In that case the last line reads `SOME DEFAULTS DID NOT APPLY`; that line
+is the signal, so never make it unconditional.
+
+Which callable runs is `DEFAULTS_POPULATE_FILE` / `DEFAULTS_POPULATE_FUNCTION`
+(same env contract as the other platforms), and `SKIP_MIGRATION=true` makes the
+job a no-op.
+
+Running from a checkout there is no `migrate` job, so `run_api.py` applies the
+same defaults at startup — but only in checkout mode
+(`auto_create_tables_enabled()`). In a container the API's startup stays
+read-only.
+
 ## Roles
 
 | Role | May do |
@@ -112,7 +174,10 @@ tests — a silent regression here corrupts the whole championship table.
 
 ## Testing
 
-`tests/` uses pytest with a SQLite database per test module. Cover at minimum:
+`tests/` is a plain-Python harness (no pytest: new dependencies need approval).
+Run it with `TEST_DATABASE_URL` pointing at a Postgres server; each module then
+creates its own database there, runs the migrations and drops it at the end.
+Without the variable it falls back to SQLite, which proves less. Cover at minimum:
 recalculation of standings, event idempotency, void semantics, operator
 permissions, and match lock/reopen. A feature is not done because the app
 starts.

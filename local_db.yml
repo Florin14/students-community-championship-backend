@@ -1,0 +1,32 @@
+# The throwaway Postgres used for local development.
+#
+# It lives outside docker-compose.yml because deployed environments talk to a
+# managed database (Neon) through DATABASE_URL and must not start a database of
+# their own. Only docker-compose.override.yml - which is local-only - pulls this
+# file in, so `-f docker-compose.yml` never sees it.
+#
+# Its environment sits here rather than in env.yml so that the service and its
+# configuration stay in the same, self-contained, local-only file.
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17}
+    container_name: ${ENV:-local}-scc-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-scc}
+      TZ: Europe/Bucharest
+      PGTZ: Europe/Bucharest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+
+volumes:
+  postgres_data:
+    name: "${ENV:-local}-scc-postgres-data"

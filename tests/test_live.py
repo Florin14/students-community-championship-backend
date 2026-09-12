@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from support import call, fresh_database, run, test  # noqa: E402
+from support import call, drop_database, fresh_database, run, test  # noqa: E402
 
-DB_URL, DB_PATH = fresh_database()
+DB_URL, DB_HANDLE = fresh_database()
 
 from constants import MatchEventType, MatchState, PlatformRoles  # noqa: E402
 from extensions.sqlalchemy import SessionLocal  # noqa: E402
@@ -223,5 +223,5 @@ def test_an_empty_feed_reports_a_stable_revision():
 if __name__ == "__main__":
     code = run("Etapa 3 - the live feed")
     DB.close()
-    os.unlink(DB_PATH)
+    drop_database(DB_HANDLE)
     sys.exit(code)

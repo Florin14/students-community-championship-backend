@@ -4,12 +4,19 @@ Each test is a function registered with @test; `run(module)` executes them and
 prints a pass/fail line per case. Routes are async, so `call()` drives them
 through asyncio and passes the session and user explicitly instead of going
 through FastAPI's dependency injection.
+
+Databases: point TEST_DATABASE_URL at a Postgres server (any database on it,
+e.g. `postgresql://postgres@127.0.0.1:5432/postgres`) and every module gets its
+own freshly created database there, dropped again when the module ends. That is
+the mode that proves anything, since the platform runs on Postgres. Without it
+the harness falls back to a throwaway SQLite file and says so.
 """
 import asyncio
 import os
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,15 +36,19 @@ def call(coroutine):
 
 
 def fresh_database():
-    """Create an empty database at head and return its URL.
+    """Create an empty database at head and return `(url, handle)`.
 
     Migrations are run rather than metadata.create_all, so the tests exercise
-    the same schema a deployment gets.
+    the same schema a deployment gets. Pass the handle to `drop_database` when
+    the module is done.
     """
-    handle, path = tempfile.mkstemp(suffix=".db", prefix="scc-test-")
-    os.close(handle)
-    os.unlink(path)
-    url = "sqlite:///%s" % path
+    server_url = os.environ.get("TEST_DATABASE_URL", "").strip()
+    if server_url:
+        url, handle = _fresh_postgres_database(server_url)
+        print("database: postgres (%s)" % handle)
+    else:
+        url, handle = _fresh_sqlite_database()
+        print("database: sqlite fallback - set TEST_DATABASE_URL for Postgres")
 
     env = dict(os.environ)
     env["DATABASE_URL"] = url
@@ -58,7 +69,71 @@ def fresh_database():
     os.environ["AUTO_CREATE_TABLES"] = "false"
     if SRC not in sys.path:
         sys.path.insert(0, SRC)
-    return url, path
+    return url, handle
+
+
+def _fresh_sqlite_database():
+    handle, path = tempfile.mkstemp(suffix=".db", prefix="scc-test-")
+    os.close(handle)
+    os.unlink(path)
+    return "sqlite:///%s" % path, path
+
+
+def _postgres_admin_connection(server_url):
+    """A psycopg2 connection to the server's maintenance database."""
+    import psycopg2
+    from sqlalchemy.engine import make_url
+
+    parsed = make_url(_as_sqlalchemy_url(server_url))
+    connection = psycopg2.connect(
+        host=parsed.host,
+        port=parsed.port or 5432,
+        user=parsed.username,
+        password=parsed.password,
+        dbname=parsed.database or "postgres",
+        **{k: v for k, v in parsed.query.items() if k == "sslmode"}
+    )
+    connection.autocommit = True
+    return connection, parsed
+
+
+def _as_sqlalchemy_url(url):
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+
+def _fresh_postgres_database(server_url):
+    name = "scc_test_%d_%d" % (os.getpid(), int(time.time()))
+    connection, parsed = _postgres_admin_connection(server_url)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('CREATE DATABASE "%s"' % name)
+    finally:
+        connection.close()
+    url = parsed.set(database=name).render_as_string(hide_password=False)
+    return url, name
+
+
+def drop_database(handle):
+    """Remove the database `fresh_database` created. Safe to call once."""
+    server_url = os.environ.get("TEST_DATABASE_URL", "").strip()
+    if not server_url:
+        if os.path.exists(handle):
+            os.unlink(handle)
+        return
+
+    # Our own engine still holds pooled connections to the database.
+    from extensions.sqlalchemy import engine
+
+    engine.dispose()
+    connection, _ = _postgres_admin_connection(server_url)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('DROP DATABASE IF EXISTS "%s" WITH (FORCE)' % handle)
+    finally:
+        connection.close()
 
 
 def raises(errorEnum, fn, *args, **kwargs):

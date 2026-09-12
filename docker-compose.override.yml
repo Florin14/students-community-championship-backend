@@ -1,0 +1,29 @@
+# Local development only. Compose loads this file automatically, which is why
+# every deployment command in ci/ and in the README passes `-f docker-compose.yml`
+# explicitly - a deployed environment must not get the bind mounts, the reloader
+# or the throwaway database below.
+
+include:
+  - local_db.yml
+  - port_forwards.yml
+
+services:
+  migrate:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    environment:
+      # uvicorn --reload, so editing src/ on the host restarts the API in place.
+      RELOAD: "true"
+    volumes:
+      # Source only. alembic.ini and the migrations come from the image, so a
+      # migration is applied by the `migrate` job exactly as it will be in a
+      # deployed environment.
+      - ./src:/app/src:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
