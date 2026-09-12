@@ -18,8 +18,14 @@ from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from extensions.sqlalchemy import DBSessionMiddleware, SessionLocal, init_db
+from extensions.sqlalchemy import (
+    DBSessionMiddleware,
+    SessionLocal,
+    auto_create_tables_enabled,
+    init_db,
+)
 from project_helpers.exceptions import ErrorException
+from project_helpers.functions import get_build_info, version_string
 from project_helpers.responses import (
     error_exception_handler,
     http_exception_handler,
@@ -27,7 +33,6 @@ from project_helpers.responses import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
-from constants import PlatformRoles
 from modules import (
     auditRouter,
     authRouter,
@@ -40,61 +45,46 @@ from modules import (
     teamRouter,
     userRouter,
 )
-from modules.auth.models import UserModel
+from services.populate_defaults import populate_defaults
 
 
-def _ensure_default_admin():
-    """Seed the first super-admin so a fresh database is usable.
+def _populate_defaults_for_checkout():
+    """Apply the default rows when this process also owns the schema.
 
-    The first account is a SUPER_ADMIN because it is the only role that can
-    reopen a confirmed match, and it is the account that creates the operator
-    accounts for match day.
+    In a container the `migrate` job (services.run_migrations) has already run
+    them before this API was allowed to start, and startup stays read-only -
+    which is what keeps two replicas from racing the same insert. Running from a
+    checkout there is no such job, so do it here.
     """
-    email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@scc.ro")
-    password = os.getenv("DEFAULT_ADMIN_PASSWORD")
-    name = os.getenv("DEFAULT_ADMIN_NAME", "Administrator")
+    if not auto_create_tables_enabled():
+        return
 
-    db = SessionLocal()
+    session = SessionLocal()
     try:
-        has_admin = (
-            db.query(UserModel)
-            .filter(
-                UserModel.role.in_(
-                    [PlatformRoles.ADMIN, PlatformRoles.SUPER_ADMIN]
-                )
-            )
-            .first()
-            is not None
-        )
-        if not has_admin:
-            if not password:
-                logging.warning(
-                    "No administrator exists and DEFAULT_ADMIN_PASSWORD is not "
-                    "set - skipping default account creation"
-                )
-                return
-            admin = UserModel(
-                name=name, email=email, role=PlatformRoles.SUPER_ADMIN
-            )
-            admin.password = password
-            db.add(admin)
-            db.commit()
-            logging.info("Default super-admin account created: %s", email)
+        if populate_defaults(session) is False:
+            logging.error("Some defaults did not apply - see the errors above")
     finally:
-        db.close()
+        session.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.basicConfig(level=logging.INFO)
+    # First line in the logs says exactly which build is serving, which is what
+    # makes a deployment marker useful when something goes wrong at 3pm.
+    logging.info(
+        "Starting SCC API %s (%s)",
+        version_string(),
+        os.getenv("APP_ENV", "local"),
+    )
     init_db()
-    _ensure_default_admin()
+    _populate_defaults_for_checkout()
     yield
 
 
 api = FastAPI(
     title="Students Community Championship API",
-    version="0.1.0",
+    version=str(get_build_info()["version"]),
     lifespan=lifespan,
     exception_handlers={
         ErrorException: error_exception_handler,
@@ -123,7 +113,15 @@ api.add_middleware(
 
 @api.get("/health")
 def health():
+    """Liveness probe. Deliberately does not touch the database: a slow query
+    must not make the orchestrator restart a healthy container."""
     return {"status": "ok"}
+
+
+@api.get("/version")
+def version():
+    """What is actually running here. Used by deploy scripts and smoke tests."""
+    return get_build_info()
 
 
 for router in (

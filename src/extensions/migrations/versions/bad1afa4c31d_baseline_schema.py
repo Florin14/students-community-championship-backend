@@ -182,3 +182,9 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_seasons_id'), table_name='seasons')
     op.drop_table('seasons')
     # ### end Alembic commands ###
+
+    # Dropping a table does not drop the Postgres enum types it used; leaving
+    # them behind makes the next `upgrade head` fail with "type already exists".
+    if op.get_bind().dialect.name == 'postgresql':
+        for enum_name in ('cardtype', 'matchstate', 'playerpositions', 'platformroles'):
+            op.execute('DROP TYPE IF EXISTS %s' % enum_name)

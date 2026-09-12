@@ -1,0 +1,13 @@
+# Ports published on the host. Separate file because they differ per
+# environment: only the local override includes this one, while a deployed
+# environment either publishes nothing (reverse proxy on the same network) or
+# includes its own variant.
+services:
+  api:
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  postgres:
+    # Not 5432: the host may already run a Postgres of its own.
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"

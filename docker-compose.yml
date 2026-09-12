@@ -1,0 +1,55 @@
+# Backend stack: the migration job, then the API.
+#
+#   docker compose up -d --build          local, with the bundled Postgres and
+#                                         the port forwards (override applies)
+#   docker compose -f docker-compose.yml up -d
+#                                         deployed shape: no bind mounts, no
+#                                         published ports, external DATABASE_URL
+#
+# The override file is loaded automatically and is LOCAL ONLY, so a deployment
+# must pass `-f docker-compose.yml` explicitly.
+
+# Project name is env-scoped too, so the local, testing and staging stacks can
+# share a host without their containers, network and volumes colliding.
+name: ${ENV:-local}-scc-backend
+
+include:
+  - env.yml
+
+# Both services run the same image. Only one build actually happens: the second
+# is a full cache hit on the same context.
+x-api-image: &api-image
+  image: ${API_IMAGE:-students-community-championship-backend:${APP_VERSION:-local}}
+  build:
+    context: .
+    args:
+      VERSION: ${APP_VERSION:-local}
+      GIT_SHA: ${GIT_SHA:-dev}
+      BUILD_DATE: ${BUILD_DATE:-}
+
+services:
+  # One-shot: `alembic upgrade head`, then exits. Runs as its own step rather
+  # than inside the API start-up so that two API replicas can never race the
+  # same migration, and so a failed migration stops the rollout instead of
+  # producing a container that serves against a half-moved schema.
+  migrate:
+    <<: *api-image
+    container_name: ${ENV:-local}-scc-migrate
+    command: ["migrate"]
+    restart: "no"
+
+  api:
+    <<: *api-image
+    container_name: ${ENV:-local}-scc-api
+    command: ["serve"]
+    # Health comes from the image's own HEALTHCHECK (see the Dockerfile): a
+    # process-level probe on /health that deliberately does not touch the
+    # database, so a slow query cannot get a healthy container restarted.
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: always
+
+networks:
+  default:
+    name: "${ENV:-local}-scc-network"

@@ -359,6 +359,9 @@ def downgrade() -> None:
          WHERE status = 'ACTIVE' AND type IN ('GOAL', 'OWN_GOAL')
         """
     )
+    # Postgres will not assign a text CASE result to an enum column without a
+    # cast; SQLite stores the enum as VARCHAR and has no cast to make.
+    card_type_cast = '::cardtype' if bind.dialect.name == 'postgresql' else ''
     op.execute(
         """
         INSERT INTO cards (
@@ -366,11 +369,12 @@ def downgrade() -> None:
             minute
         )
         SELECT match_id, team_id, player_id, player_name_snapshot,
-               CASE WHEN type = 'YELLOW_CARD' THEN 'YELLOW' ELSE 'RED' END,
+               (CASE WHEN type = 'YELLOW_CARD' THEN 'YELLOW' ELSE 'RED' END)%s,
                minute
           FROM match_events
          WHERE status = 'ACTIVE' AND type IN ('YELLOW_CARD', 'RED_CARD')
         """
+        % card_type_cast
     )
 
     for column in (
