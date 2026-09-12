@@ -13,12 +13,24 @@ it from here, so there is one answer to "what is actually deployed".
 UNKNOWN = "dev"
 
 
+def _git_sha() -> str:
+    """GIT_SHA is baked in by scripts/build-image.sh. Render builds the image
+    itself and passes no build args, but it exports the deployed commit as
+    RENDER_GIT_COMMIT at run time, so the deploy check in CI can still read
+    what is live from /version."""
+    for name in ("GIT_SHA", "RENDER_GIT_COMMIT"):
+        value = os.getenv(name, "").strip()
+        if value and value != UNKNOWN:
+            return value
+    return UNKNOWN
+
+
 @lru_cache(maxsize=1)
 def get_build_info() -> Dict[str, Optional[str]]:
     return {
         "name": "students-community-championship-backend",
         "version": os.getenv("APP_VERSION", UNKNOWN),
-        "gitSha": os.getenv("GIT_SHA", UNKNOWN),
+        "gitSha": _git_sha(),
         "buildDate": os.getenv("BUILD_DATE") or None,
         "environment": os.getenv("APP_ENV", "local"),
     }
