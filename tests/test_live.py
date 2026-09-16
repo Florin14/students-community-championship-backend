@@ -10,13 +10,20 @@ from support import call, drop_database, fresh_database, run, test  # noqa: E402
 DB_URL, DB_HANDLE = fresh_database()
 
 from constants import MatchEventType, MatchState, PlatformRoles  # noqa: E402
+from extensions.live import (  # noqa: E402
+    LiveReason,
+    subscribe_live,
+    unsubscribe_live,
+)
 from extensions.sqlalchemy import SessionLocal  # noqa: E402
 from project_helpers.dependencies import MatchContext  # noqa: E402
 from modules.auth.models import UserModel  # noqa: E402
 from modules.match.models import (  # noqa: E402
+    MatchAdd,
     MatchEventAdd,
     MatchEventVoid,
     MatchModel,
+    MatchUpdate,
 )
 from modules.match.routes.add_match_event import add_match_event  # noqa: E402
 from modules.match.routes.get_live_matches import get_live_matches  # noqa: E402
@@ -218,6 +225,126 @@ def test_an_empty_feed_reports_a_stable_revision():
     assert payload.data == []
     assert payload.revision == "empty"
     assert payload.serverTime is not None
+
+
+# --- Live notices to the websocket hub ----------------------------------------
+
+PUBLISHED = []
+
+
+def _record(message):
+    PUBLISHED.append(message)
+
+
+def _reasons():
+    return [message["reason"] for message in PUBLISHED]
+
+
+@test
+def test_every_visible_change_is_announced_to_the_hub():
+    PUBLISHED.clear()
+    subscribe_live(_record)
+    try:
+        match = newMatch()
+        call(start(ctx=ctx(match), db=DB))
+        goal(match)
+        call(pause(ctx=ctx(match), db=DB))
+        call(finish(ctx=ctx(match), db=DB))
+        DB.commit()
+    finally:
+        unsubscribe_live(_record)
+
+    assert _reasons() == [
+        LiveReason.MATCH_STARTED,
+        LiveReason.EVENT_ADDED,
+        LiveReason.MATCH_PAUSED,
+        LiveReason.MATCH_FINISHED,
+    ]
+    message = PUBLISHED[1]
+    assert message["type"] == "match.updated"
+    assert message["matchId"] == match.id
+    assert message["seasonId"] == SEASON.id
+    assert message["state"] == "LIVE"
+    assert message["at"].endswith("Z")
+
+
+@test
+def test_a_replayed_event_is_not_announced_twice():
+    PUBLISHED.clear()
+    subscribe_live(_record)
+    try:
+        match = newMatch()
+        call(start(ctx=ctx(match), db=DB))
+        data = MatchEventAdd(
+            type=MatchEventType.GOAL,
+            teamId=HOME.id,
+            playerId=H1.id,
+            clientEventId="phone-1-evt-7",
+        )
+        first = call(add_match_event(data=data, ctx=ctx(match), db=DB))
+        replay = call(add_match_event(data=data, ctx=ctx(match), db=DB))
+        DB.commit()
+    finally:
+        unsubscribe_live(_record)
+
+    assert first.created is True and replay.created is False
+    assert _reasons().count(LiveReason.EVENT_ADDED) == 1
+
+
+@test
+def test_a_failing_listener_never_fails_the_write():
+    def explode(message):
+        raise RuntimeError("hub is broken")
+
+    subscribe_live(explode)
+    try:
+        match = newMatch()
+        call(start(ctx=ctx(match), db=DB))
+        response = goal(match)
+        DB.commit()
+    finally:
+        unsubscribe_live(explode)
+
+    assert response.created is True
+    assert (match.scoreHome, match.scoreAway) == (1, 0)
+
+
+@test
+def test_stream_url_is_cleaned_and_validated():
+    add = MatchAdd(
+        seasonId=SEASON.id,
+        homeTeamId=HOME.id,
+        awayTeamId=AWAY.id,
+        timestamp=datetime(2026, 6, 1, 18, 0),
+        streamUrl="  https://www.youtube.com/watch?v=abc123  ",
+    )
+    assert add.streamUrl == "https://www.youtube.com/watch?v=abc123"
+
+    assert MatchUpdate(streamUrl="").streamUrl is None
+    assert MatchUpdate(streamUrl=None).streamUrl is None
+    assert "streamUrl" not in MatchUpdate().model_dump(exclude_unset=True)
+    assert "streamUrl" in MatchUpdate(streamUrl=None).model_dump(
+        exclude_unset=True
+    )
+
+    try:
+        MatchUpdate(streamUrl="javascript:alert(1)")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("a non-http URL must be refused")
+
+
+@test
+def test_stream_url_travels_with_the_live_feed():
+    match = newMatch()
+    match.streamUrl = "https://youtu.be/abc123"
+    call(start(ctx=ctx(match), db=DB))
+    DB.commit()
+
+    item = [i for i in live().data if i.id == match.id][0]
+    assert item.streamUrl == "https://youtu.be/abc123"
+    assert item.playedSeconds >= 0 and item.isClockRunning is True
 
 
 if __name__ == "__main__":

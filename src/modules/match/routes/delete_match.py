@@ -2,6 +2,7 @@ from fastapi import Depends, status
 from sqlalchemy.orm import Session
 
 from constants import PlatformRoles
+from extensions.live import LiveReason, publish_match_changed
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import GetInstanceFromPath, JwtRequired
 from modules.match.models import MatchModel
@@ -19,6 +20,7 @@ async def delete_match(
     match: MatchModel = Depends(GetInstanceFromPath(MatchModel)),
     db: Session = Depends(get_db),
 ):
+    match_id = match.id
     season_id = match.seasonId
     team_ids = [match.homeTeamId, match.awayTeamId]
 
@@ -27,3 +29,4 @@ async def delete_match(
 
     recalculate_standings_for_teams(db, season_id, team_ids)
     db.commit()
+    publish_match_changed(match_id, season_id, LiveReason.MATCH_DELETED)

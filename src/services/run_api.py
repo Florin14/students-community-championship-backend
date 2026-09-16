@@ -18,6 +18,7 @@ from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
+from extensions.live import subscribe_live
 from extensions.sqlalchemy import (
     DBSessionMiddleware,
     SessionLocal,
@@ -37,6 +38,7 @@ from modules import (
     auditRouter,
     authRouter,
     fieldRouter,
+    liveRouter,
     matchRouter,
     playerRouter,
     seasonRouter,
@@ -45,6 +47,7 @@ from modules import (
     teamRouter,
     userRouter,
 )
+from modules.live.services import hub as live_hub
 from services.populate_defaults import populate_defaults
 
 
@@ -79,6 +82,9 @@ async def lifespan(app: FastAPI):
     )
     init_db()
     _populate_defaults_for_checkout()
+    # Route commits announce themselves on the bus; the hub turns that into
+    # frames for the open websockets. Same process, so no broker needed.
+    subscribe_live(live_hub.notify)
     yield
 
 
@@ -97,8 +103,12 @@ api = FastAPI(
 
 
 def parse_allowed_origins():
+    # A trailing slash is the classic paste mistake and browsers never send
+    # one in Origin, so strip it rather than silently blocking every request.
     raw = os.getenv("ALLOWED_ORIGINS", "*")
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()
+    ]
 
 
 api.add_middleware(DBSessionMiddleware)
@@ -125,6 +135,7 @@ def version():
 
 
 for router in (
+    liveRouter,
     authRouter,
     userRouter,
     seasonRouter,

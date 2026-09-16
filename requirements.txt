@@ -12,3 +12,4 @@ python-dotenv==1.0.1
 python-multipart==0.0.20
 pillow==11.1.0
 pytz==2025.1
+websockets==13.1

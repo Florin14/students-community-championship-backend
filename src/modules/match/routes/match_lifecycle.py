@@ -7,6 +7,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from constants import PlatformRoles
+from extensions.live import LiveReason, publish_match_changed
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import MatchAccess, MatchContext
 from modules.match.models import MatchReopen, MatchResponse
@@ -31,6 +32,9 @@ async def start(
     """Kick off. Starts the clock the console reads the minute from."""
     start_match(db, ctx.match, ctx.user)
     db.commit()
+    publish_match_changed(
+        ctx.match.id, ctx.match.seasonId, LiveReason.MATCH_STARTED, ctx.match.state
+    )
     return load_match_full(db, ctx.match.id)
 
 
@@ -42,6 +46,9 @@ async def pause(
     """Half time, or any stoppage that should stop the clock."""
     pause_match(db, ctx.match, ctx.user)
     db.commit()
+    publish_match_changed(
+        ctx.match.id, ctx.match.seasonId, LiveReason.MATCH_PAUSED, ctx.match.state
+    )
     return load_match_full(db, ctx.match.id)
 
 
@@ -52,6 +59,9 @@ async def resume(
 ):
     resume_match(db, ctx.match, ctx.user)
     db.commit()
+    publish_match_changed(
+        ctx.match.id, ctx.match.seasonId, LiveReason.MATCH_RESUMED, ctx.match.state
+    )
     return load_match_full(db, ctx.match.id)
 
 
@@ -68,6 +78,9 @@ async def finish(
     finish_match(db, ctx.match, ctx.user)
     recalculate_match_standings(db, ctx.match)
     db.commit()
+    publish_match_changed(
+        ctx.match.id, ctx.match.seasonId, LiveReason.MATCH_FINISHED, ctx.match.state
+    )
     return load_match_full(db, ctx.match.id)
 
 
@@ -87,4 +100,7 @@ async def reopen(
     reopen_match(db, ctx.match, ctx.user, reason=data.reason)
     recalculate_match_standings(db, ctx.match)
     db.commit()
+    publish_match_changed(
+        ctx.match.id, ctx.match.seasonId, LiveReason.MATCH_REOPENED, ctx.match.state
+    )
     return load_match_full(db, ctx.match.id)

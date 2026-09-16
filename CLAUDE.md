@@ -51,6 +51,7 @@ src/
   extensions/
     sqlalchemy/        engine, SessionLocal, get_db, DBSessionMiddleware, SqlBaseModel
     migrations/        Alembic env + versions/
+    live/              event bus: publish_match_changed() -> in-process listeners
   project_helpers/
     dependencies/      JwtRequired, GetInstanceFromPath, match access guards
     error/             Error enum: (code, message) pairs
@@ -92,6 +93,18 @@ These are load-bearing. Match them exactly when adding code.
   hand-written query plus 404.
 - **Schema changes go through Alembic only.** `init_db()` runs `create_all` for
   local convenience; it is disabled in production via `AUTO_CREATE_TABLES=false`.
+- **Every write a viewer could notice announces itself.** After `db.commit()`
+  a match route calls `publish_match_changed(matchId, seasonId, LiveReason.X,
+  state)` from `extensions.live`. The notice carries no payload: the websocket
+  hub (`modules/live/services/hub.py`, same process) re-reads the match through
+  `build_live_feed` / `load_public_match` - the SAME functions the HTTP routes
+  return - so a socket frame equals a poll response. Listener errors are logged,
+  never raised; tests register a recorder with `subscribe_live`.
+- **Websockets** live in `modules/live`: `WS /ws/live?seasonId=` (a `snapshot`
+  frame whenever the feed's `revision` changes) and `WS /ws/matches/{id}` (a
+  `match` frame on change; 4404 when unknown, 4403 when the Origin is not in
+  `ALLOWED_ORIGINS`). Run ONE uvicorn worker per instance - the hub is
+  in-process. Several workers or replicas would need a broker between them.
 
 ## Migrations and default data
 

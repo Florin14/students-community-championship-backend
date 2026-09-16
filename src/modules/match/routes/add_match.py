@@ -2,6 +2,7 @@ from fastapi import Depends, status
 from sqlalchemy.orm import Session
 
 from constants import PlatformRoles
+from extensions.live import LiveReason, publish_match_changed
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import JwtRequired
 from project_helpers.error import Error
@@ -70,6 +71,7 @@ async def add_match(data: MatchAdd, db: Session = Depends(get_db)):
         timestamp=data.timestamp,
         fieldId=data.fieldId,
         location=data.location,
+        streamUrl=data.streamUrl,
     )
     db.add(match)
     db.flush()
@@ -81,4 +83,7 @@ async def add_match(data: MatchAdd, db: Session = Depends(get_db)):
         set_match_operators(db, match, data.operatorIds)
 
     db.commit()
+    publish_match_changed(
+        match.id, match.seasonId, LiveReason.MATCH_CREATED, match.state
+    )
     return load_match_full(db, match.id)

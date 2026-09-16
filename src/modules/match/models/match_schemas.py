@@ -15,6 +15,22 @@ def _decode_logo(value):
     return value
 
 
+def _clean_stream_url(value):
+    """Empty input clears the link; anything kept must be a web URL.
+
+    The value ends up in an iframe / anchor on the public match page, so a
+    `javascript:` or bare-host string is refused here rather than escaped later.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    if not value.lower().startswith(("http://", "https://")):
+        raise ValueError("streamUrl must start with http:// or https://")
+    return value
+
+
 class MatchAdd(BaseSchema):
     seasonId: int
     homeTeamId: int
@@ -23,7 +39,13 @@ class MatchAdd(BaseSchema):
     timestamp: datetime
     fieldId: Optional[int] = None
     location: Optional[str] = Field(None, max_length=160)
+    streamUrl: Optional[str] = Field(None, max_length=500)
     operatorIds: List[int] = Field(default_factory=list)
+
+    @field_validator("streamUrl", mode="before")
+    @classmethod
+    def clean_stream_url(cls, value):
+        return _clean_stream_url(value)
 
 
 class MatchUpdate(BaseSchema):
@@ -33,7 +55,14 @@ class MatchUpdate(BaseSchema):
     timestamp: Optional[datetime] = None
     fieldId: Optional[int] = None
     location: Optional[str] = Field(None, max_length=160)
+    # Explicit null (or "") clears the link; an absent key leaves it alone.
+    streamUrl: Optional[str] = Field(None, max_length=500)
     state: Optional[MatchState] = None
+
+    @field_validator("streamUrl", mode="before")
+    @classmethod
+    def clean_stream_url(cls, value):
+        return _clean_stream_url(value)
 
 
 class MatchOperatorsSet(BaseSchema):
@@ -67,12 +96,17 @@ class MatchItem(BaseSchema):
     fieldId: Optional[int] = None
     fieldName: Optional[str] = None
     location: Optional[str] = None
+    streamUrl: Optional[str] = None
     scoreHome: Optional[int] = None
     scoreAway: Optional[int] = None
     state: MatchState
     startedAt: Optional[datetime] = None
     isClockRunning: bool = False
     currentMinute: Optional[int] = None
+    # Playing time at the moment this response was built. The client keeps
+    # ticking from here while `isClockRunning`, so it shows seconds without a
+    # request per second.
+    playedSeconds: int = 0
     isLocked: bool = False
 
     @field_validator("homeTeamLogo", "awayTeamLogo", mode="before")

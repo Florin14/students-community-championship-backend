@@ -10,6 +10,12 @@ from .lifecycle_service import (
     resume_match,
     start_match,
 )
+from .live_feed import (
+    LIVE_STATES,
+    build_live_feed,
+    feed_revision,
+    load_public_match,
+)
 from .match_loader import load_match_full
 from .match_status import completed_match_filter, match_is_completed
 from .operator_service import assignable_role, set_match_operators

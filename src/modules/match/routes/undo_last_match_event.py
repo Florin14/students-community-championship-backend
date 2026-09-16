@@ -1,6 +1,7 @@
 from fastapi import Depends, status
 from sqlalchemy.orm import Session
 
+from extensions.live import LiveReason, publish_match_changed
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import MatchAccess, MatchContext
 from project_helpers.error import Error
@@ -36,6 +37,9 @@ async def undo_last_match_event(
     recalculate_match_standings(db, ctx.match)
     db.commit()
     db.refresh(event)
+    publish_match_changed(
+        ctx.match.id, ctx.match.seasonId, LiveReason.EVENT_UNDONE, ctx.match.state
+    )
 
     return MatchEventWriteResponse(
         event=event,

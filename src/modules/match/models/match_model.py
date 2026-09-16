@@ -34,6 +34,10 @@ class MatchModel(SqlBaseModel):
         index=True,
     )
     location = Column(String(160), nullable=True)
+    # Public stream of this match (YouTube live, usually). Shown on the match
+    # page next to the live score; the live service only relays the score, it
+    # never touches the video.
+    streamUrl = Column("stream_url", String(500), nullable=True)
     scoreHome = Column("score_home", Integer, nullable=True)
     scoreAway = Column("score_away", Integer, nullable=True)
     state = Column(

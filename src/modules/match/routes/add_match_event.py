@@ -1,6 +1,7 @@
 from fastapi import Depends, status
 from sqlalchemy.orm import Session
 
+from extensions.live import LiveReason, publish_match_changed
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import MatchAccess, MatchContext
 from modules.match.models import (
@@ -35,6 +36,14 @@ async def add_match_event(
     recalculate_match_standings(db, ctx.match)
     db.commit()
     db.refresh(event)
+    # A replay changed nothing, so the viewers have nothing new to fetch.
+    if created:
+        publish_match_changed(
+            ctx.match.id,
+            ctx.match.seasonId,
+            LiveReason.EVENT_ADDED,
+            ctx.match.state,
+        )
 
     return MatchEventWriteResponse(
         event=event,

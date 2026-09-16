@@ -2,6 +2,7 @@ from fastapi import Depends, status
 from sqlalchemy.orm import Session
 
 from constants import PlatformRoles
+from extensions.live import LiveReason, publish_match_changed
 from extensions.sqlalchemy import get_db
 from project_helpers.dependencies import GetInstanceFromPath, JwtRequired
 from project_helpers.error import Error
@@ -81,4 +82,7 @@ async def update_match(
     )
 
     db.commit()
+    publish_match_changed(
+        match.id, match.seasonId, LiveReason.MATCH_UPDATED, match.state
+    )
     return load_match_full(db, match.id)
