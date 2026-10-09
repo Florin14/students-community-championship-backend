@@ -18,7 +18,7 @@ async def get_all_users(
     params: UserListParams = Depends(),
     db: Session = Depends(get_db),
 ):
-    """List the platform accounts: operators, admins and super-admins."""
+    """List operators, admins and super-admins."""
     query = db.query(UserModel)
 
     if params.role is not None:

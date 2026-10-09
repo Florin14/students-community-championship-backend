@@ -4,9 +4,9 @@ from enum import Enum
 class PlatformRoles(str, Enum):
     """Platform roles, ordered by privilege.
 
-    Section 6 of the implementation plan: an operator scores only the matches
-    assigned to them, an administrator runs the competition, and a super-admin
-    can additionally reopen and correct a confirmed match.
+    Operators verify identity and attendance and score any open match.
+    An administrator runs the competition; a super-admin can reopen a result.
+    Competition management remains restricted to administrators.
     """
 
     OPERATOR = "OPERATOR"

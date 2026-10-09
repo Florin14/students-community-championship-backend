@@ -1,4 +1,5 @@
 from .player_model import PlayerModel
+from .player_qr_model import PlayerQrModel
 from .player_schemas import (
     PlayerAdd,
     PlayerEventItem,

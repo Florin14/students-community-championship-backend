@@ -3,9 +3,11 @@ from sqlalchemy import (
     Column,
     Date,
     ForeignKey,
+    JSON,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -21,6 +23,7 @@ class SeasonModel(SqlBaseModel):
     startDate = Column("start_date", Date, nullable=True)
     endDate = Column("end_date", Date, nullable=True)
     isActive = Column("is_active", Boolean, nullable=False, default=False)
+    calendar = Column(JSON, nullable=False, default=list, server_default=text("'[]'"))
 
     seasonTeams = relationship(
         "SeasonTeamModel",

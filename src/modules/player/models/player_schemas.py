@@ -6,6 +6,8 @@ from pydantic import AliasChoices, Field, field_validator
 from constants import PlayerPositions
 from project_helpers.functions import process_and_convert_image_to_base64
 from project_helpers.schemas import BaseSchema, PaginationParams
+from project_helpers.error import Error
+from project_helpers.exceptions import ErrorException
 
 
 class AvatarInputMixin(BaseSchema):
@@ -14,12 +16,15 @@ class AvatarInputMixin(BaseSchema):
     @field_validator("avatar", mode="before")
     @classmethod
     def encode_avatar(cls, value):
+        if not value:
+            raise ErrorException(Error.PLAYER_PHOTO_REQUIRED, status_code=400)
         if isinstance(value, str) and value:
             return process_and_convert_image_to_base64(value)
         return value
 
 
 class PlayerAdd(AvatarInputMixin):
+    avatar: bytes = Field(..., min_length=1)
     name: str = Field(..., min_length=1, max_length=80)
     position: Optional[PlayerPositions] = None
     shirtNumber: Optional[int] = Field(None, ge=0, le=99)
@@ -34,6 +39,7 @@ class PlayerUpdate(AvatarInputMixin):
 
 
 class PlayerItem(BaseSchema):
+    attendanceCount: int = 0
     id: int
     name: str
     position: Optional[PlayerPositions] = None

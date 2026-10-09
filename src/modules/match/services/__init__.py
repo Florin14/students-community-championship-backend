@@ -11,6 +11,7 @@ from .lifecycle_service import (
     start_match,
 )
 from .match_loader import load_match_full
+from .attendance_summary import attach_match_attendance
 from .match_status import completed_match_filter, match_is_completed
 from .operator_service import assignable_role, set_match_operators
 from .score_service import (

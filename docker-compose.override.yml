@@ -5,7 +5,6 @@
 
 include:
   - local_db.yml
-  - port_forwards.yml
 
 services:
   migrate:
@@ -14,6 +13,11 @@ services:
         condition: service_healthy
 
   api:
+    # The local fragment extends env.yml as well, preserving the API's
+    # environment when this replaces the base file's extends reference.
+    extends:
+      file: port_forwards.yml
+      service: api
     environment:
       # uvicorn --reload, so editing src/ on the host restarts the API in place.
       RELOAD: "true"

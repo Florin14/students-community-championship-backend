@@ -40,6 +40,13 @@ class Error(Enum):
         "The player does not belong to the team credited with the event",
     )
 
+    # Attendance
+    INVALID_PLAYER_QR = ("E0060", "The player QR code is invalid or revoked")
+    QR_WRONG_SEASON = ("E0061", "This QR code belongs to another season")
+    ATTENDANCE_CLOSED = ("E0062", "Attendance can only be confirmed before kickoff")
+    PLAYER_PHOTO_REQUIRED = ("E0063", "A player photo is required for identity verification")
+    IDENTITY_NOT_CONFIRMED = ("E0064", "Confirm the player's identity before recording attendance")
+
     # Files
     INVALID_IMAGE = ("E0040", "Invalid image file")
 

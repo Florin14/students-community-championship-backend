@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import List, Optional
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
-from project_helpers.schemas import BaseSchema
+from project_helpers.schemas import BaseSchema, PaginationParams
 
 
 class TopPlayerItem(BaseSchema):
@@ -40,6 +41,13 @@ class GoalsPerRoundResponse(BaseSchema):
 
 
 class OverviewResponse(BaseSchema):
+    audienceTotal: int = 0
+    audienceMatches: int = 0
+    audienceAverage: Optional[float] = None
+    audienceMax: Optional[int] = None
+    attendances: int = 0
+    attendancePlayers: int = 0
+    attendanceMatches: int = 0
     teams: int = 0
     players: int = 0
     matchesPlayed: int = 0
@@ -51,3 +59,24 @@ class OverviewResponse(BaseSchema):
     topScorerName: Optional[str] = None
     topScorerTeamName: Optional[str] = None
     topScorerGoals: int = 0
+
+
+class AudienceStatsParams(PaginationParams):
+    seasonId: Optional[int] = Field(None, gt=0)
+
+
+class AudienceMatchItem(BaseSchema):
+    matchId: int
+    timestamp: datetime
+    round: Optional[int] = None
+    homeTeamName: str
+    awayTeamName: str
+    audience: int
+
+
+class AudienceStatsResponse(BaseSchema):
+    totalSpectators: int
+    matchesWithAudience: int
+    averageSpectators: Optional[float] = None
+    maxSpectators: Optional[int] = None
+    data: List[AudienceMatchItem] = Field(default_factory=list)

@@ -59,5 +59,5 @@ def set_match_operators(
 
 
 def assignable_role(role: PlatformRoles) -> bool:
-    """Operators and above can be put on a match; nothing below exists today."""
+    """Any staff role can be assigned to a match."""
     return role.covers(PlatformRoles.OPERATOR)

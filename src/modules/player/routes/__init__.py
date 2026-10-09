@@ -5,3 +5,5 @@ from .get_player_events import *
 from .add_player import *
 from .update_player import *
 from .delete_player import *
+from .issue_player_qr import *
+from .revoke_player_qr import *

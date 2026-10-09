@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from extensions.sqlalchemy import get_db
 from modules.match.models import MatchListParams, MatchListResponse, MatchModel
+from modules.match.services import attach_match_attendance
 
 from .router import router
 
@@ -42,4 +43,6 @@ async def get_matches(
 
     query = query.order_by(MatchModel.timestamp.asc(), MatchModel.id.asc())
 
-    return MatchListResponse(data=params.apply(query).all())
+    matches = params.apply(query).all()
+    attach_match_attendance(db, matches)
+    return MatchListResponse(data=matches)

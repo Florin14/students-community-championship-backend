@@ -6,6 +6,7 @@ from .get_match import *
 from .get_match_events import *
 from .add_match import *
 from .update_match import *
+from .update_match_audience import *
 from .set_match_operators import *
 from .add_match_event import *
 from .undo_last_match_event import *

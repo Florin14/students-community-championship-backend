@@ -58,7 +58,9 @@ WORKDIR /app
 COPY --chown=appuser:appuser alembic.ini ./
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Also handle existing Windows checkouts that still contain CRLF endings.
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh
 
 USER appuser
 EXPOSE 8000

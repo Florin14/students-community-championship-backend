@@ -9,6 +9,9 @@
 # configuration stay in the same, self-contained, local-only file.
 services:
   postgres:
+    extends:
+      file: port_forwards.yml
+      service: postgres
     image: ${POSTGRES_IMAGE:-postgres:17}
     container_name: ${ENV:-local}-scc-postgres
     environment:

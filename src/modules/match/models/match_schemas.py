@@ -24,9 +24,11 @@ class MatchAdd(BaseSchema):
     fieldId: Optional[int] = None
     location: Optional[str] = Field(None, max_length=160)
     operatorIds: List[int] = Field(default_factory=list)
+    audience: Optional[int] = Field(None, ge=0, le=2147483647, strict=True)
 
 
 class MatchUpdate(BaseSchema):
+    audience: Optional[int] = Field(None, ge=0, le=2147483647, strict=True)
     round: Optional[int] = Field(None, ge=1)
     homeTeamId: Optional[int] = None
     awayTeamId: Optional[int] = None
@@ -42,6 +44,10 @@ class MatchOperatorsSet(BaseSchema):
     operatorIds: List[int] = Field(default_factory=list)
 
 
+class MatchAudienceUpdate(BaseSchema):
+    audience: Optional[int] = Field(..., ge=0, le=2147483647, strict=True)
+
+
 class MatchOperatorItem(BaseSchema):
     userId: int
     userName: Optional[str] = None
@@ -49,9 +55,14 @@ class MatchOperatorItem(BaseSchema):
 
 
 class MatchItem(BaseSchema):
+    attendanceHome: int = 0
+    attendanceAway: int = 0
+    attendanceTotal: int = 0
+    audience: Optional[int] = None
     id: int
     seasonId: int
     seasonName: Optional[str] = None
+    calendarLabel: Optional[str] = None
     round: Optional[int] = None
     homeTeamId: int
     awayTeamId: int

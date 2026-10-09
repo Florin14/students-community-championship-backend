@@ -3,3 +3,4 @@ from .match_event_type import MatchEventType
 from .match_state import MatchState
 from .platform_roles import PlatformRoles
 from .player_positions import PlayerPositions
+from .attendance_status import AttendanceStatus

@@ -15,6 +15,7 @@ from .match_schemas import (
     LiveMatchesResponse,
     LiveMatchItem,
     MatchAdd,
+    MatchAudienceUpdate,
     MatchItem,
     MatchListParams,
     MatchListResponse,

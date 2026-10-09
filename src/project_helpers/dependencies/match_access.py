@@ -28,10 +28,10 @@ class MatchContext:
 class MatchAccess:
     """Load the match from `{id}` and check the caller may write to it.
 
-    Two rules, both from section 6 of the implementation plan:
+    Scoring permissions and result confirmation:
 
-    - An operator may only touch a match they are assigned to; admins and
-      super-admins may touch any match.
+    - Operators, admins and super-admins may score any match.
+      Assignments identify the responsible staff without restricting access.
     - A confirmed match is locked, and writes are refused until a super-admin
       reopens it. Reopening is the only call that passes `allowLocked=True`.
 
@@ -78,13 +78,6 @@ class MatchAccess:
                 Error.NOT_FOUND,
                 message="Match not found",
                 status_code=status.HTTP_404_NOT_FOUND,
-            )
-
-        isOperatorOnly = not user.covers(PlatformRoles.ADMIN)
-        if isOperatorOnly and user.id not in match.operatorIds:
-            raise ErrorException(
-                Error.NOT_ASSIGNED_TO_MATCH,
-                status_code=status.HTTP_403_FORBIDDEN,
             )
 
         if match.isLocked and not self.allowLocked:

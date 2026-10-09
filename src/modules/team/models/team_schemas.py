@@ -21,6 +21,7 @@ class TeamAdd(LogoInputMixin):
     name: str = Field(..., min_length=1, max_length=80)
     shortName: Optional[str] = Field(None, max_length=8)
     faculty: Optional[str] = Field(None, max_length=120)
+    university: Optional[str] = Field(None, max_length=160)
     description: Optional[str] = None
     color: Optional[str] = Field(None, max_length=9)
 
@@ -29,6 +30,7 @@ class TeamUpdate(LogoInputMixin):
     name: Optional[str] = Field(None, min_length=1, max_length=80)
     shortName: Optional[str] = Field(None, max_length=8)
     faculty: Optional[str] = Field(None, max_length=120)
+    university: Optional[str] = Field(None, max_length=160)
     description: Optional[str] = None
     color: Optional[str] = Field(None, max_length=9)
 
@@ -38,6 +40,7 @@ class TeamItem(BaseSchema):
     name: str
     shortName: Optional[str] = None
     faculty: Optional[str] = None
+    university: Optional[str] = None
     description: Optional[str] = None
     color: Optional[str] = None
     logo: Optional[str] = None

@@ -13,9 +13,6 @@
 # share a host without their containers, network and volumes colliding.
 name: ${ENV:-local}-scc-backend
 
-include:
-  - env.yml
-
 # Both services run the same image. Only one build actually happens: the second
 # is a full cache hit on the same context.
 x-api-image: &api-image
@@ -34,12 +31,18 @@ services:
   # producing a container that serves against a half-moved schema.
   migrate:
     <<: *api-image
+    extends:
+      file: env.yml
+      service: migrate
     container_name: ${ENV:-local}-scc-migrate
     command: ["migrate"]
     restart: "no"
 
   api:
     <<: *api-image
+    extends:
+      file: env.yml
+      service: api
     container_name: ${ENV:-local}-scc-api
     command: ["serve"]
     # Health comes from the image's own HEALTHCHECK (see the Dockerfile): a
