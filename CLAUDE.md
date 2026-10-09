@@ -33,6 +33,12 @@ The stack is split across `docker-compose.yml` (topology), `env.yml`
 pass `-f docker-compose.yml` explicitly. New env vars go in `.env.template` and
 in `env.yml` in the same change.
 
+Docker builds use the official Python 3.12 slim image on ECR Public for both
+stages, avoiding Docker Hub base-image pull limits in CI and Render. Override
+with `docker build --build-arg PYTHON_IMAGE=python:3.12-slim .` when needed.
+The Dockerfile uses BuildKit's bundled frontend rather than pulling an external
+syntax image. CI's image job explicitly exports `type=cacheonly` and never pushes.
+
 **The database is Postgres** (Neon or Supabase in every deployed environment,
 the bundled `postgres` container or a Neon branch locally). `DATABASE_URL` is
 normalised by `extensions/sqlalchemy/init.py`: `postgres://` / `postgresql://`
