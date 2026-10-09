@@ -1,10 +1,14 @@
-# syntax=docker/dockerfile:1.7
+# Use Docker's official image on ECR Public to avoid Docker Hub pull limits.
+# Both stages must use the same base for the copied virtualenv.
+# Override with --build-arg PYTHON_IMAGE=python:3.12-slim if needed.
+# Standard instructions use BuildKit's bundled Dockerfile frontend.
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.12-slim
 
 # ---------------------------------------------------------------------------
 # Builder: resolve dependencies into a self-contained virtualenv.
 # Kept separate so the runtime image carries no compiler and no build cache.
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM ${PYTHON_IMAGE} AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -20,7 +24,7 @@ RUN python -m venv /opt/venv \
 # ---------------------------------------------------------------------------
 # Runtime
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM ${PYTHON_IMAGE} AS runtime
 
 # Build identity, passed in by scripts/build-image.sh and surfaced at /version.
 ARG VERSION=dev
