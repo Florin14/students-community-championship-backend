@@ -40,6 +40,11 @@ The Dockerfile uses BuildKit's bundled frontend rather than pulling an external
 syntax image. CI's image job explicitly exports `type=cacheonly` and never pushes.
 CI's PostgreSQL 17 service also pulls the official image from ECR Public, because
 service initialization happens before job steps can authenticate to Docker Hub.
+The image job uses Buildx's `docker` driver with Docker's bundled BuildKit.
+`setup-docker-action` enables the containerd image store and installs current
+Docker; `setup-buildx-action` installs current Buildx for GitHub cache API v2.
+This avoids pulling a separate `moby/buildkit` container during builder startup
+while retaining the GitHub Actions cache and the cache-only build output.
 
 **The database is Postgres** (Neon or Supabase in every deployed environment,
 the bundled `postgres` container or a Neon branch locally). `DATABASE_URL` is
