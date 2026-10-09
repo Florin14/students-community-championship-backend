@@ -1,4 +1,5 @@
 from fastapi import Depends
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from extensions.sqlalchemy import get_db
@@ -21,7 +22,12 @@ async def get_teams(
         ).filter(SeasonTeamModel.seasonId == params.seasonId)
 
     if params.search:
-        query = query.filter(TeamModel.name.ilike(f"%{params.search}%"))
+        pattern = f"%{params.search}%"
+        query = query.filter(or_(
+            TeamModel.name.ilike(pattern),
+            TeamModel.faculty.ilike(pattern),
+            TeamModel.university.ilike(pattern),
+        ))
 
     query = query.order_by(TeamModel.name.asc())
 

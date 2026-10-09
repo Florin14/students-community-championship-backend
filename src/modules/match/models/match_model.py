@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from constants import MatchState
@@ -9,6 +9,7 @@ from extensions.sqlalchemy import BigIntPK, SqlBaseModel
 
 class MatchModel(SqlBaseModel):
     __tablename__ = "matches"
+    __table_args__ = (CheckConstraint("audience >= 0", name="ck_matches_audience_nonnegative"),)
 
     id = Column(BigIntPK, primary_key=True, index=True)
     seasonId = Column(
@@ -34,6 +35,7 @@ class MatchModel(SqlBaseModel):
         index=True,
     )
     location = Column(String(160), nullable=True)
+    audience = Column(Integer, nullable=True)
     scoreHome = Column("score_home", Integer, nullable=True)
     scoreAway = Column("score_away", Integer, nullable=True)
     state = Column(
@@ -122,6 +124,19 @@ class MatchModel(SqlBaseModel):
     @property
     def seasonName(self):
         return self.season.name if self.season else None
+
+    @property
+    def calendarLabel(self):
+        """Name an unnumbered competition phase from the season's calendar."""
+        if self.season is None or self.timestamp is None:
+            return None
+        day = self.timestamp.date().isoformat()
+        for period in self.season.calendar or []:
+            if period["startDate"] <= day <= period["endDate"]:
+                if not period["isBreak"] and period.get("round") is None:
+                    return period["label"]
+                return None
+        return None
 
     @property
     def homeTeamName(self):

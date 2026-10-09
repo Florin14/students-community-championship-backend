@@ -32,7 +32,9 @@ async def update_season(
                 status_code=status.HTTP_409_CONFLICT,
             )
 
-    season.update(data)
+    season.update(data, exclude={"calendar"})
+    if "calendar" in data.model_fields_set:
+        season.calendar = [period.model_dump(mode="json") for period in data.calendar]
     db.flush()
 
     if season.isActive:

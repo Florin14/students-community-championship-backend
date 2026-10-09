@@ -5,6 +5,7 @@ from modules.match.models import (
     MatchModel,
     MatchOperatorModel,
 )
+from .attendance_summary import attach_match_attendance
 
 
 def load_match_full(db: Session, matchId: int):
@@ -14,7 +15,7 @@ def load_match_full(db: Session, matchId: int):
     the assigned operators and the goal/card details without lazy loads firing
     once the request's session is closed.
     """
-    return (
+    match = (
         db.query(MatchModel)
         .options(
             joinedload(MatchModel.homeTeam),
@@ -36,3 +37,6 @@ def load_match_full(db: Session, matchId: int):
         .filter(MatchModel.id == matchId)
         .first()
     )
+    if match is not None:
+        attach_match_attendance(db, [match])
+    return match

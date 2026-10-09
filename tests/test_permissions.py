@@ -110,13 +110,8 @@ def test_operator_may_score_their_own_match():
 
 
 @test
-def test_operator_may_not_score_someone_elses_match():
-    raises(
-        Error.NOT_ASSIGNED_TO_MATCH,
-        access,
-        FIX["opA"],
-        FIX["matchB"],
-    )
+def test_operator_may_score_any_open_match_without_assignment():
+    assert access(FIX["opA"], FIX["matchB"]).match.id == FIX["matchB"].id
 
 
 @test

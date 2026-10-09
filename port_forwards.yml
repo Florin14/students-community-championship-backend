@@ -1,9 +1,12 @@
 # Ports published on the host. Separate file because they differ per
-# environment: only the local override includes this one, while a deployed
+# environment: only the local services extend this file, while a deployed
 # environment either publishes nothing (reverse proxy on the same network) or
 # includes its own variant.
 services:
   api:
+    extends:
+      file: env.yml
+      service: api
     ports:
       - "${API_PORT:-8000}:8000"
 

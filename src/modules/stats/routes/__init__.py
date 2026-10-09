@@ -4,3 +4,5 @@ from .get_top_scorers import *
 from .get_top_assists import *
 from .get_discipline import *
 from .get_goals_per_round import *
+from .get_attendance import *
+from .get_audience import *

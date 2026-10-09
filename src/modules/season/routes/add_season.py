@@ -32,6 +32,7 @@ async def add_season(data: SeasonAdd, db: Session = Depends(get_db)):
         startDate=data.startDate,
         endDate=data.endDate,
         isActive=data.isActive,
+        calendar=[period.model_dump(mode="json") for period in data.calendar],
     )
     db.add(season)
     db.flush()

@@ -70,6 +70,7 @@ async def add_match(data: MatchAdd, db: Session = Depends(get_db)):
         timestamp=data.timestamp,
         fieldId=data.fieldId,
         location=data.location,
+        audience=data.audience,
     )
     db.add(match)
     db.flush()

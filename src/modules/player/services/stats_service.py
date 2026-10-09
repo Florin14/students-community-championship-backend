@@ -98,7 +98,20 @@ def attach_player_stats(db: Session, players, season_id: Optional[int] = None):
     stats = get_player_stats_map(
         db, player_ids=[player.id for player in players], season_id=season_id
     )
+    from constants import AttendanceStatus
+    from modules.attendance.models import AttendanceModel
+
+    attendance_query = db.query(
+        AttendanceModel.playerIdSnapshot, func.count(AttendanceModel.id)
+    ).join(MatchModel, MatchModel.id == AttendanceModel.matchId).filter(
+        AttendanceModel.status == AttendanceStatus.PRESENT,
+        AttendanceModel.playerIdSnapshot.in_([player.id for player in players]),
+    )
+    if season_id is not None:
+        attendance_query = attendance_query.filter(MatchModel.seasonId == season_id)
+    attendance_counts = dict(attendance_query.group_by(AttendanceModel.playerIdSnapshot).all())
     for player in players:
+        player.attendanceCount = attendance_counts.get(player.id, 0)
         playerStats = stats.get(player.id, EMPTY)
         player.goals = playerStats["goals"]
         player.ownGoals = playerStats["ownGoals"]

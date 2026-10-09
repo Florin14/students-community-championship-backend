@@ -68,6 +68,19 @@ src/
 Modules: `auth`, `user`, `season`, `team`, `player`, `field`, `match`,
 `standings`, `stats`, `audit`.
 
+Team university and faculty are separate optional metadata. The university
+column is nullable so existing teams remain valid; public team responses and
+search include both fields. Updates preserve an omitted university and allow
+an explicit null to clear it.
+
+Seasons expose an editable JSON calendar: inclusive start/end dates, activity
+label, phase, optional round and break flag. Writes validate non-overlapping
+periods, valid ranges and no rounds on breaks. Omitted calendar updates preserve
+the stored calendar; an explicit empty list clears it. Existing seasons migrate
+to an empty calendar. Match calendarLabel is derived for unnumbered playing
+phases, never for breaks, and participates in the live-feed revision. Calendar
+edits never alter stored match rounds, events, scores or standings.
+
 ## Conventions
 
 These are load-bearing. Match them exactly when adding code.
@@ -141,14 +154,45 @@ read-only.
 
 | Role | May do |
 | --- | --- |
-| `OPERATOR` | Score only the matches assigned to them: add and void events, start/pause/finish that match. |
+| `OPERATOR` | Read player profiles and attendance statistics; scan QR credentials and confirm attendance before kickoff. Score any open match and enter its audience. No competition management, QR issuance or attendance corrections. |
 | `ADMIN` | Everything an operator can, plus manage seasons, teams, players, fields, matches and operator accounts. |
 | `SUPER_ADMIN` | Everything, plus reopen a confirmed match and correct locked data. |
 
 Role checks are hierarchical: `JwtRequired(roles=[PlatformRoles.ADMIN])` also
 admits `SUPER_ADMIN`. Match-scoped access additionally goes through
 `MatchAccess` (see `project_helpers/dependencies/match_access.py`), which is what
-restricts an operator to their assigned matches.
+enforces scoring roles and locked results. Operator is the sole stadium staff
+role; assignments record responsibility without restricting access. Migration
+`d6a9218f4c73` converts former Volunteer accounts to Operator, preserving IDs,
+passwords, active/disabled state and audit links, then removes the legacy enum
+value. Existing JWTs work because permissions are checked against the database.
+
+## Attendance
+
+Attendance is documented in `docs/attendance.md`. QR credentials are specific
+to a player, season and team, with a distinct JWT audience from login tokens.
+Attendance confirmations require an explicit identity check and are unique per
+player and match. Transfers revoke old QR credentials, and pending attendance
+must be corrected before changing a player's team or a match's teams. Count
+only PRESENT rows in statistics; retain snapshots and audit for corrections.
+Run `tests/test_attendance.py` on Postgres after changing this workflow.
+
+Player creation requires a valid photo uploaded by an admin. Updates preserve
+an omitted photo, reject its removal, and require legacy players without a photo
+to receive one before saving. Keep legacy rows; do not invent placeholder photos.
+
+Matches expose nullable `audience`: a nonnegative integer spectator count,
+with null meaning unknown and zero meaning no spectators. Admins can set it in
+match forms; staff can use `PUT /matches/{id}/audience` before result confirmation.
+This route follows the same assignment and lock rules as scoring, with an audit
+entry for changes. Audience never changes the score or standings.
+
+Public match responses include `attendanceHome`, `attendanceAway` and
+`attendanceTotal`, counting PRESENT snapshots only in one batched query.
+Private attendance identities remain in the authenticated attendance API.
+`GET /stats/audience` and overview audience fields aggregate completed matches
+with known audience values. Include zero in the average, exclude null and
+unplayed matches, and compute totals independently of ranking pagination.
 
 ## The match event log
 

@@ -7,8 +7,8 @@ from project_helpers.dependencies import JwtRequired
 from modules.match.models import (
     MatchListResponse,
     MatchModel,
-    MatchOperatorModel,
 )
+from modules.match.services import attach_match_attendance
 
 from .router import router
 
@@ -26,9 +26,8 @@ async def get_my_matches(
 ):
     """The matches the signed-in account may score, soonest first.
 
-    This is the operator's home screen. Admins and super-admins can score any
-    match, so for them it lists every match still open for scoring rather than
-    only their explicit assignments.
+    All staff accounts may score any open match. Assignments remain useful
+    for coordination, but do not restrict access to the console.
     """
     query = db.query(MatchModel).options(
         joinedload(MatchModel.homeTeam),
@@ -37,13 +36,8 @@ async def get_my_matches(
         joinedload(MatchModel.field),
     )
 
-    if currentUser.covers(PlatformRoles.ADMIN):
-        query = query.filter(MatchModel.state.in_(_OPERABLE_STATES))
-    else:
-        query = query.join(
-            MatchOperatorModel,
-            MatchOperatorModel.matchId == MatchModel.id,
-        ).filter(MatchOperatorModel.userId == currentUser.id)
+    query = query.filter(MatchModel.state.in_(_OPERABLE_STATES))
 
     matches = query.order_by(MatchModel.timestamp.asc()).all()
+    attach_match_attendance(db, matches)
     return MatchListResponse(data=matches)

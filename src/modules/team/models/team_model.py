@@ -11,6 +11,7 @@ class TeamModel(SqlBaseModel):
     name = Column(String(80), nullable=False, unique=True)
     shortName = Column("short_name", String(8), nullable=True)
     faculty = Column(String(120), nullable=True)
+    university = Column(String(160), nullable=True)
     description = Column(Text, nullable=True)
     color = Column(String(9), nullable=True)
     logo = Column(LargeBinary, nullable=True)

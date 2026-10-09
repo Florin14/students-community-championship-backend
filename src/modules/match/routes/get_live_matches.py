@@ -13,6 +13,7 @@ from modules.match.models import (
     MatchEventModel,
     MatchModel,
 )
+from modules.match.services import attach_match_attendance
 
 from .router import router
 
@@ -32,7 +33,7 @@ def _revision(matches) -> str:
             [event.id for event in match.events] or [0]
         )
         parts.append(
-            "%s:%s:%s:%s:%s:%s"
+            "%s:%s:%s:%s:%s:%s:%s:%s:%s:%s"
             % (
                 match.id,
                 match.state,
@@ -40,6 +41,10 @@ def _revision(matches) -> str:
                 match.scoreAway,
                 lastEventId,
                 len(match.events),
+                match.audience,
+                match.attendanceHome,
+                match.attendanceAway,
+                match.calendarLabel,
             )
         )
     if not parts:
@@ -76,6 +81,7 @@ async def get_live_matches(
         query = query.filter(MatchModel.seasonId == seasonId)
 
     matches = query.order_by(MatchModel.timestamp.asc()).all()
+    attach_match_attendance(db, matches)
 
     for match in matches:
         match.events = sorted(

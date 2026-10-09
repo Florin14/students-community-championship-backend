@@ -11,6 +11,7 @@ from modules.match.services import active_event_filter, completed_match_filter
 from modules.season.models import SeasonTeamModel
 from modules.player.models import PlayerModel
 from modules.stats.models import OverviewResponse
+from modules.stats.services import audience_summary
 from modules.team.models import TeamModel
 
 from .helpers import build_top_players
@@ -22,6 +23,10 @@ async def get_overview(
     seasonId: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
+    from modules.attendance.services import attendance_summary
+
+    attendance = attendance_summary(db, seasonId)
+    audience = audience_summary(db, seasonId)
     if seasonId:
         teams = (
             db.query(func.count(SeasonTeamModel.id))
@@ -78,6 +83,13 @@ async def get_overview(
     top_scorer = top_scorers[0] if top_scorers else None
 
     return OverviewResponse(
+        audienceTotal=audience["totalSpectators"],
+        audienceMatches=audience["matchesWithAudience"],
+        audienceAverage=audience["averageSpectators"],
+        audienceMax=audience["maxSpectators"],
+        attendances=attendance["totalAttendances"],
+        attendancePlayers=attendance["uniquePlayers"],
+        attendanceMatches=attendance["matchesWithAttendance"],
         teams=teams or 0,
         players=players or 0,
         matchesPlayed=matches_played,

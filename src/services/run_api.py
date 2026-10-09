@@ -34,6 +34,7 @@ from project_helpers.responses import (
     validation_exception_handler,
 )
 from modules import (
+    attendanceRouter,
     auditRouter,
     authRouter,
     fieldRouter,
@@ -125,6 +126,7 @@ def version():
 
 
 for router in (
+    attendanceRouter,
     authRouter,
     userRouter,
     seasonRouter,

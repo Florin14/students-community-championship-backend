@@ -26,6 +26,15 @@ async def update_match(
     match: MatchModel = Depends(GetInstanceFromPath(MatchModel)),
     db: Session = Depends(get_db),
 ):
+    # Attendance confirmations use this lock too, so a team change cannot
+    # pass the attendance check while another transaction is checking in.
+    match = (
+        db.query(MatchModel)
+        .filter(MatchModel.id == match.id)
+        .with_for_update()
+        .populate_existing()
+        .one()
+    )
     previous_team_ids = {match.homeTeamId, match.awayTeamId}
 
     home_team_id = (
@@ -41,6 +50,19 @@ async def update_match(
         )
 
     new_team_ids = {home_team_id, away_team_id} - previous_team_ids
+    if new_team_ids:
+        from constants import AttendanceStatus
+        from modules.attendance.models import AttendanceModel
+
+        if db.query(AttendanceModel.id).filter(
+            AttendanceModel.matchId == match.id,
+            AttendanceModel.status == AttendanceStatus.PRESENT,
+        ).first() is not None:
+            raise ErrorException(
+                Error.CONFLICT,
+                message="Correct the recorded attendance before changing the match teams",
+                status_code=status.HTTP_409_CONFLICT,
+            )
     if new_team_ids:
         found = (
             db.query(TeamModel.id).filter(TeamModel.id.in_(new_team_ids)).all()

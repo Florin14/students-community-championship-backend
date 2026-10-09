@@ -8,3 +8,4 @@ from .match import *
 from .standings import *
 from .stats import *
 from .audit import *
+from .attendance import *

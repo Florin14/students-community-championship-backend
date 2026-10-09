@@ -30,6 +30,7 @@ async def add_team(data: TeamAdd, db: Session = Depends(get_db)):
         name=data.name,
         shortName=data.shortName,
         faculty=data.faculty,
+        university=data.university,
         description=data.description,
         color=data.color,
         logo=data.logo,
